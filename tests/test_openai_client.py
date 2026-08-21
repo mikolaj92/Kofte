@@ -1,39 +1,135 @@
-"""OpenAI adapter lives in the package, not only in examples."""
+"""OpenAI-compatible HTTP client: any /v1 endpoint, API key optional."""
 
 from __future__ import annotations
 
-from kofte.llm import OpenAIJSONClient
+import json
+
+import pytest
+
+from kofte.llm import OpenAICompatClient, OpenAIJSONClient, build_llm
 from kofte.models import TranslationDraft
 
 
-class _Choice:
-    def __init__(self, content: str) -> None:
-        self.message = type("M", (), {"content": content})()
+def _ok_payload(text: str = "ok") -> dict:
+    body = {
+        "text": text,
+        "language": "en",
+        "style": "norwegian_jante",
+        "moves": [],
+        "preserved": [],
+    }
+    return {"choices": [{"message": {"content": json.dumps(body)}}]}
 
 
-class _FakeCompletions:
-    def __init__(self) -> None:
-        self.calls: list[dict] = []
+def test_posts_to_custom_base_url_without_authorization():
+    calls: list[dict] = []
 
-    def create(self, **kwargs):
-        self.calls.append(kwargs)
-        payload = '{"text":"ok","language":"en","style":"norwegian_jante"}'
-        return type("R", (), {"choices": [_Choice(payload)]})()
+    def transport(url: str, headers: dict[str, str], payload: dict) -> dict:
+        calls.append({"url": url, "headers": headers, "payload": payload})
+        return _ok_payload()
 
-
-class _FakeClient:
-    def __init__(self) -> None:
-        self.chat = type("C", (), {"completions": _FakeCompletions()})()
-
-
-def test_openai_json_client_round_trips_schema():
-    fake = _FakeClient()
-    client = OpenAIJSONClient(client=fake, model="test-model")
-    out = client.complete_json(
-        [{"role": "user", "content": "hi"}],
-        TranslationDraft,
+    client = OpenAICompatClient(
+        base_url="http://127.0.0.1:1234/v1",
+        model="local-model",
+        transport=transport,
     )
+    out = client.complete_json([{"role": "user", "content": "hi"}], TranslationDraft)
     assert out.text == "ok"
-    call = fake.chat.completions.calls[0]
-    assert call["model"] == "test-model"
-    assert call["response_format"]["type"] == "json_schema"
+    assert calls[0]["url"] == "http://127.0.0.1:1234/v1/chat/completions"
+    assert "Authorization" not in calls[0]["headers"]
+    assert calls[0]["payload"]["model"] == "local-model"
+
+
+def test_optional_api_key_sends_bearer():
+    calls: list[dict] = []
+
+    def transport(url: str, headers: dict[str, str], payload: dict) -> dict:
+        calls.append({"headers": headers})
+        return _ok_payload()
+
+    OpenAICompatClient(
+        base_url="http://localhost:8080/v1",
+        model="x",
+        api_key="secret",
+        transport=transport,
+    ).complete_json([], TranslationDraft)
+    assert calls[0]["headers"]["Authorization"] == "Bearer secret"
+
+
+def test_strips_markdown_fences():
+    def transport(url, headers, payload):
+        body = json.dumps({"text": "we look", "language": "en", "style": "norwegian_jante"})
+        return {"choices": [{"message": {"content": f"```json\n{body}\n```"}}]}
+
+    out = OpenAICompatClient(
+        base_url="http://localhost/v1",
+        model="x",
+        transport=transport,
+    ).complete_json([], TranslationDraft)
+    assert out.text == "we look"
+
+
+def test_falls_back_when_json_schema_rejected():
+    calls: list[dict] = []
+
+    def transport(url: str, headers: dict[str, str], payload: dict) -> dict:
+        calls.append(payload)
+        if "response_format" in payload:
+            raise OpenAICompatClient.HTTPError(400, "unknown response_format")
+        return _ok_payload("fallback")
+
+    out = OpenAICompatClient(
+        base_url="http://localhost/v1",
+        model="x",
+        json_mode="auto",
+        transport=transport,
+    ).complete_json([{"role": "user", "content": "hi"}], TranslationDraft)
+    assert out.text == "fallback"
+    assert "response_format" in calls[0]
+    assert "response_format" not in calls[1]
+
+
+def test_openai_json_client_is_alias():
+    assert OpenAIJSONClient is OpenAICompatClient
+
+
+def test_build_llm_from_base_url_does_not_need_api_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("KOFTE_LLM_BASE_URL", "http://127.0.0.1:1234/v1")
+    monkeypatch.setenv("KOFTE_LLM_MODEL", "qwen")
+    llm = build_llm()
+    assert isinstance(llm, OpenAICompatClient)
+    assert llm.base_url.endswith("/v1")
+    assert llm.model == "qwen"
+    assert llm.api_key is None
+
+
+def test_build_llm_none_without_url(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("KOFTE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("KOFTE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("KOFTE_LLM", raising=False)
+    assert build_llm() is None
+
+
+def test_build_llm_cli_overrides_env(monkeypatch):
+    monkeypatch.setenv("KOFTE_LLM_BASE_URL", "http://env/v1")
+    monkeypatch.setenv("KOFTE_LLM_MODEL", "env-model")
+    llm = build_llm(base_url="http://cli/v1", model="cli-model")
+    assert isinstance(llm, OpenAICompatClient)
+    assert llm.base_url == "http://cli/v1"
+    assert llm.model == "cli-model"
+
+
+def test_missing_model_with_url_raises():
+    with pytest.raises(ValueError, match="model"):
+        OpenAICompatClient(base_url="http://localhost/v1", model="")
+
+
+
+def test_build_llm_url_without_model_is_none(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("KOFTE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("KOFTE_LLM", raising=False)
+    monkeypatch.setenv("KOFTE_LLM_BASE_URL", "http://127.0.0.1:1234/v1")
+    assert build_llm() is None

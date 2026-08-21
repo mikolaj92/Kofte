@@ -1,13 +1,20 @@
-"""Replaceable LLM. The library does not own a vendor."""
+"""Replaceable LLM. Any OpenAI-compatible /v1 endpoint. API key optional."""
 
 from __future__ import annotations
 
+import json
 import os
-from collections.abc import Mapping, Sequence
+import re
+import urllib.error
+import urllib.request
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
+from urllib.parse import urljoin
 
 from pydantic import BaseModel
+
+Transport = Callable[[str, dict[str, str], dict[str, Any]], dict[str, Any]]
 
 
 class LLMClient(Protocol):
@@ -45,49 +52,157 @@ class MockLLMClient:
         return schema.model_validate(response)
 
 
-class OpenAIJSONClient:
-    """Thin OpenAI adapter: chat.completions → pydantic schema.
+class OpenAICompatClient:
+    """Chat Completions client for any OpenAI-compatible server.
 
-    Install extra: ``uv add 'kofte[openai]'``. Pass a pre-built client in tests.
+    Works with LM Studio, Ollama, vLLM, llama.cpp, OpenAI, Azure-style
+    proxies, etc. Talks HTTP to ``{base_url}/chat/completions``. No vendor
+    SDK. ``api_key`` is optional — local servers usually do not need one.
     """
 
-    def __init__(self, model: str | None = None, client: Any | None = None) -> None:
-        if client is None:
-            from openai import OpenAI
+    class HTTPError(RuntimeError):
+        def __init__(self, status: int, body: str) -> None:
+            self.status = status
+            self.body = body
+            super().__init__(f"HTTP {status}: {body[:500]}")
 
-            client = OpenAI()
-        self.client = client
-        self.model = model or os.environ.get("KOFTE_LLM_MODEL", "gpt-4.1-mini")
+    def __init__(
+        self,
+        base_url: str,
+        model: str,
+        api_key: str | None = None,
+        timeout: float = 120.0,
+        json_mode: str = "auto",
+        transport: Transport | None = None,
+    ) -> None:
+        if not model:
+            raise ValueError("model is required")
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.api_key = api_key or None
+        self.timeout = timeout
+        if json_mode not in {"auto", "schema", "off"}:
+            raise ValueError("json_mode must be auto, schema, or off")
+        self.json_mode = json_mode
+        self._transport = transport or self._http_transport
 
-    def complete_json(self, messages: list[dict[str, str]], schema: type[BaseModel]) -> BaseModel:
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            response_format={
+    def complete_json(
+        self,
+        messages: list[dict[str, str]],
+        schema: type[BaseModel],
+    ) -> BaseModel:
+        payload: dict[str, Any] = {"model": self.model, "messages": messages}
+        want_schema = self.json_mode in {"auto", "schema"}
+        if want_schema:
+            payload["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
                     "name": schema.__name__,
                     "schema": schema.model_json_schema(),
                     "strict": True,
                 },
-            },
+            }
+        try:
+            raw = self._post(payload)
+        except OpenAICompatClient.HTTPError:
+            if self.json_mode != "auto" or "response_format" not in payload:
+                raise
+            fallback = dict(payload)
+            fallback.pop("response_format", None)
+            raw = self._post(fallback)
+        return _parse_message(raw, schema)
+
+    def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
+        url = _join_chat_url(self.base_url)
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return self._transport(url, headers, payload)
+
+    def _http_transport(
+        self, url: str, headers: dict[str, str], payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
         )
-        content = response.choices[0].message.content or "{}"
-        return schema.model_validate_json(content)
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            raise OpenAICompatClient.HTTPError(exc.code, body) from exc
 
 
-def build_llm() -> LLMClient | None:
-    """Build an LLM from the environment.
+OpenAIJSONClient = OpenAICompatClient
+
+
+def _join_chat_url(base_url: str) -> str:
+    base = base_url if base_url.endswith("/") else base_url + "/"
+    return urljoin(base, "chat/completions")
+
+
+def _parse_message(raw: Mapping[str, Any], schema: type[BaseModel]) -> BaseModel:
+    try:
+        content = raw["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError(f"unexpected chat completions payload: {raw!r}") from exc
+    if isinstance(content, list):
+        content = "".join(
+            part.get("text", "") if isinstance(part, Mapping) else str(part) for part in content
+        )
+    if not isinstance(content, str):
+        content = json.dumps(content)
+    text = _strip_fences(content)
+    return schema.model_validate_json(text)
+
+
+def _strip_fences(content: str) -> str:
+    text = content.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    return text.strip()
+
+
+def build_llm(
+    base_url: str | None = None,
+    model: str | None = None,
+    api_key: str | None = None,
+) -> LLMClient | None:
+    """Build an LLM from arguments or the environment.
 
     ``KOFTE_LLM=none`` → None.
-    ``OPENAI_API_KEY`` or ``KOFTE_LLM=openai`` → OpenAIJSONClient.
-    Otherwise None. Hosts inject their own client.
+    ``KOFTE_LLM=mock`` → MockLLMClient.
+    Otherwise any OpenAI-compatible server:
+
+    - ``KOFTE_LLM_BASE_URL`` / ``base_url`` (required to auto-build)
+    - ``KOFTE_LLM_MODEL`` / ``model``
+    - ``KOFTE_LLM_API_KEY`` or ``OPENAI_API_KEY`` (optional)
+
+    If only an API key is set, ``base_url`` defaults to ``https://api.openai.com/v1``.
+    A local server needs a URL and a model, not a key.
     """
     kind = os.environ.get("KOFTE_LLM", "").strip().lower()
     if kind in {"none", "off", "0"}:
         return None
     if kind == "mock":
         return MockLLMClient()
-    if kind in {"openai", "openai-json"} or os.environ.get("OPENAI_API_KEY"):
-        return OpenAIJSONClient()
-    return None
+
+    url = (base_url or os.environ.get("KOFTE_LLM_BASE_URL") or "").strip()
+    name = (model or os.environ.get("KOFTE_LLM_MODEL") or "").strip()
+    key = (
+        api_key
+        or os.environ.get("KOFTE_LLM_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+        or ""
+    ).strip() or None
+
+    if not url and key:
+        url = "https://api.openai.com/v1"
+        name = name or "gpt-4.1-mini"
+    if not url or not name:
+        return None
+    return OpenAICompatClient(base_url=url, model=name, api_key=key)

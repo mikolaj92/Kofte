@@ -20,18 +20,20 @@ The only shipped, fully worked example is:
 
 ```bash
 uv add git+https://github.com/mikolaj92/Kofte.git
-# optional extras
-uv add 'kofte[openai]'
-uv add 'kofte[mcp]'
+uv add 'kofte[mcp]'   # optional, for the MCP server
 ```
 
 ## Engine
 
 ```python
-from kofte import Translator
-from kofte.llm import OpenAIJSONClient
+from kofte import OpenAICompatClient, Translator
 
-engine = Translator(llm=OpenAIJSONClient())
+# Any OpenAI-compatible /v1 server. API key is optional.
+llm = OpenAICompatClient(
+    base_url="http://127.0.0.1:1234/v1",
+    model="local-model",
+)
+engine = Translator(llm=llm)
 result = engine.translate(
     "This is wrong. Fix it.",
     source="en+polish_direct",
@@ -162,8 +164,9 @@ mcp_servers:
 Or in Python:
 
 ```python
+from kofte import OpenAICompatClient
 from kofte.mcp_server import create_server
-server = create_server(llm=OpenAIJSONClient())
+server = create_server(llm=OpenAICompatClient(base_url="http://127.0.0.1:1234/v1", model="local-model"))
 ```
 
 ## OpenAI-style tool calls (no MCP)
@@ -206,12 +209,19 @@ Wire a Slack bot, a browser extension, or a clipboard watcher on top. The engine
 ```bash
 kofte profiles
 kofte prompt --source en+polish_direct --target en+norwegian_jante "This is wrong. Fix it."
-OPENAI_API_KEY=... kofte translate --source en+polish_direct --target en+norwegian_jante "This is wrong. Fix it."
 kofte translate --json --source en+polish_direct --target en+norwegian_jante "This is wrong."
 kofte mcp
 ```
 
-`kofte translate` uses `OPENAI_API_KEY` / `KOFTE_LLM`. No key → it exits 2 and tells you to inject an LLM.
+`kofte translate` talks to any OpenAI-compatible server:
+
+```bash
+kofte translate --base-url http://127.0.0.1:1234/v1 --model qwen \
+  --source en+polish_direct --target en+norwegian_jante "This is wrong. Fix it."
+```
+
+Env instead of flags: `KOFTE_LLM_BASE_URL`, `KOFTE_LLM_MODEL`, optional `KOFTE_LLM_API_KEY`.
+No OpenAI account required. Local LM Studio / Ollama / vLLM / llama.cpp is enough.
 
 ## Translation rules (Jante)
 
@@ -233,7 +243,7 @@ The LLM writes the rewrite. Optional `after` filters can reject a bad one.
 - **Registers** (`en+norwegian_jante`) split language from style.
 - **Profiles** are TOML + Markdown. Culture is data.
 - **Translator** is the reusable engine: registry + LLM + filters.
-- **LLM** is a protocol. `MockLLMClient` / `OpenAIJSONClient` / inject your own.
+- **LLM** is a protocol. `OpenAICompatClient` talks HTTP to any `/v1/chat/completions`. Key optional. Or inject your own.
 - **MCP and TOOLS** are the same three calls.
 - **Hosts** convert Slack / browser / clipboard into `InboundMessage`.
 

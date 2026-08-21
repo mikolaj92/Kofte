@@ -33,7 +33,7 @@ def create_server(
 
     server = MCPServer(
         name="kofte",
-        version="0.2.0",
+        version="0.2.1",
         instructions=(
             "Cultural style translator. Language and style are independent. "
             "Use list_profiles, describe_profile, then translate. "

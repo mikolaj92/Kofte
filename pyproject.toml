@@ -1,6 +1,6 @@
 [project]
 name = "kofte"
-version = "0.2.0"
+version = "0.2.1"
 description = "Open cultural style-translation layer: rewrite a message's language and/or register (Polish directness → Norwegian Janteloven is the shipped example)."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,7 +24,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-openai = ["openai>=1.0"]
 mcp = ["mcp>=2.0"]
 dev = [
   "pytest>=8.3.0",

@@ -20,7 +20,12 @@ def _engine(args: argparse.Namespace) -> Translator:
     extra = getattr(args, "profile_dir", None)
     if extra:
         registry.load_dir(extra)
-    return Translator(llm=build_llm(), registry=registry)
+    llm = build_llm(
+        base_url=getattr(args, "base_url", None),
+        model=getattr(args, "model", None),
+        api_key=getattr(args, "api_key", None),
+    )
+    return Translator(llm=llm, registry=registry)
 
 
 def _cmd_profiles(args: argparse.Namespace) -> int:
@@ -56,8 +61,8 @@ def _cmd_translate(args: argparse.Namespace) -> int:
     except LLMNotConfiguredError as exc:
         sys.stderr.write(f"{exc}\n")
         sys.stderr.write(
-            "Set OPENAI_API_KEY, or inject an LLM in Python: "
-            "Translator(llm=your_client).translate(...)\n"
+            "Pass --base-url and --model for any OpenAI-compatible server "
+            "(LM Studio, Ollama, vLLM, llama.cpp). API key is optional.\n"
         )
         return 2
     except KofteError as exc:
@@ -88,6 +93,23 @@ def _add_profile_dir(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_llm_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--base-url",
+        help="OpenAI-compatible API root, e.g. http://127.0.0.1:1234/v1. "
+        "Overrides KOFTE_LLM_BASE_URL.",
+    )
+    parser.add_argument(
+        "--model",
+        help="Model id on that server. Overrides KOFTE_LLM_MODEL.",
+    )
+    parser.add_argument(
+        "--api-key",
+        default=None,
+        help="Optional bearer token. Local servers usually do not need one.",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="kofte",
@@ -106,16 +128,21 @@ def main(argv: list[str] | None = None) -> int:
     _add_profile_dir(p_prompt)
     p_prompt.set_defaults(func=_cmd_prompt)
 
-    p_translate = sub.add_parser("translate", help="translate a message")
+    p_translate = sub.add_parser(
+        "translate",
+        help="translate a message via any OpenAI-compatible /v1 server",
+    )
     p_translate.add_argument("text")
     p_translate.add_argument("--source", required=True)
     p_translate.add_argument("--target", required=True)
     p_translate.add_argument("--json", action="store_true", help="print a JSON result")
     _add_profile_dir(p_translate)
+    _add_llm_flags(p_translate)
     p_translate.set_defaults(func=_cmd_translate)
 
     p_mcp = sub.add_parser("mcp", help="run the MCP server on stdio")
     _add_profile_dir(p_mcp)
+    _add_llm_flags(p_mcp)
     p_mcp.set_defaults(func=_cmd_mcp)
 
     args = parser.parse_args(argv)

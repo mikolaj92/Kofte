@@ -44,7 +44,7 @@ def test_cli_translate_uses_injected_llm(capsys, monkeypatch):
             )
         ]
     )
-    monkeypatch.setattr("kofte.cli.build_llm", lambda: llm)
+    monkeypatch.setattr("kofte.cli.build_llm", lambda **kwargs: llm)
     code = main(
         [
             "translate",
@@ -72,7 +72,7 @@ def test_cli_translate_json(capsys, monkeypatch):
             )
         ]
     )
-    monkeypatch.setattr("kofte.cli.build_llm", lambda: llm)
+    monkeypatch.setattr("kofte.cli.build_llm", lambda **kwargs: llm)
     code = main(
         [
             "translate",
@@ -91,7 +91,7 @@ def test_cli_translate_json(capsys, monkeypatch):
 
 
 def test_cli_translate_without_llm_is_clear(capsys, monkeypatch):
-    monkeypatch.setattr("kofte.cli.build_llm", lambda: None)
+    monkeypatch.setattr("kofte.cli.build_llm", lambda **kwargs: None)
     code = main(
         [
             "translate",
@@ -105,3 +105,58 @@ def test_cli_translate_without_llm_is_clear(capsys, monkeypatch):
     err = capsys.readouterr().err.lower()
     assert code == 2
     assert "llm" in err
+
+
+
+def test_cli_translate_passes_base_url_and_model(capsys, monkeypatch):
+    llm = MockLLMClient(
+        responses=[
+            TranslationDraft(text="we look", language="en", style="norwegian_jante")
+        ]
+    )
+    seen: dict = {}
+
+    def fake_build(base_url=None, model=None, api_key=None):
+        seen["base_url"] = base_url
+        seen["model"] = model
+        seen["api_key"] = api_key
+        return llm
+
+    monkeypatch.setattr("kofte.cli.build_llm", fake_build)
+    code = main(
+        [
+            "translate",
+            "--base-url",
+            "http://127.0.0.1:1234/v1",
+            "--model",
+            "qwen",
+            "--source",
+            "en+polish_direct",
+            "--target",
+            "en+norwegian_jante",
+            "This is wrong.",
+        ]
+    )
+    assert code == 0
+    assert seen["base_url"] == "http://127.0.0.1:1234/v1"
+    assert seen["model"] == "qwen"
+    assert seen["api_key"] is None
+    assert "we look" in capsys.readouterr().out
+
+
+def test_cli_missing_llm_mentions_base_url_not_openai_key(capsys, monkeypatch):
+    monkeypatch.setattr("kofte.cli.build_llm", lambda **kwargs: None)
+    code = main(
+        [
+            "translate",
+            "--source",
+            "en+polish_direct",
+            "--target",
+            "en+norwegian_jante",
+            "This is wrong.",
+        ]
+    )
+    err = capsys.readouterr().err.lower()
+    assert code == 2
+    assert "base-url" in err
+    assert "openai_api_key" not in err

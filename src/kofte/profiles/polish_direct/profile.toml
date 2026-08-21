@@ -1,0 +1,15 @@
+id = "polish_direct"
+name = "Polish directness"
+language_hint = "pl"
+summary = "Say the fact. Name the task. Do not decorate. Directness and productivity are supreme."
+supreme = ["directness", "productivity"]
+
+[[axes]]
+id = "directness"
+name = "Directness"
+description = "The sentence is the message. Hedging is often read as hiding something. An imperative is normal, not an insult."
+
+[[axes]]
+id = "productivity"
+name = "Productivity"
+description = "Get to the work. Extra words are waste. A review comment exists to move the task, not to manage feelings."

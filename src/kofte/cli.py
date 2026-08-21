@@ -61,8 +61,8 @@ def _cmd_translate(args: argparse.Namespace) -> int:
     except LLMNotConfiguredError as exc:
         sys.stderr.write(f"{exc}\n")
         sys.stderr.write(
-            "Pass --base-url and --model for any OpenAI-compatible server "
-            "(LM Studio, Ollama, vLLM, llama.cpp). API key is optional.\n"
+            "Pass --base-url and --model for any /v1 chat-completions server "
+            "(LM Studio, Ollama, vLLM, llama.cpp). Bearer token is optional.\n"
         )
         return 2
     except KofteError as exc:
@@ -96,7 +96,7 @@ def _add_profile_dir(parser: argparse.ArgumentParser) -> None:
 def _add_llm_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--base-url",
-        help="OpenAI-compatible API root, e.g. http://127.0.0.1:1234/v1. "
+        help="Chat-completions API root, e.g. http://127.0.0.1:1234/v1. "
         "Overrides KOFTE_LLM_BASE_URL.",
     )
     parser.add_argument(
@@ -130,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_translate = sub.add_parser(
         "translate",
-        help="translate a message via any OpenAI-compatible /v1 server",
+        help="translate a message via any /v1 chat-completions server",
     )
     p_translate.add_argument("text")
     p_translate.add_argument("--source", required=True)

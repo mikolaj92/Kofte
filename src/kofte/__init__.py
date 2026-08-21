@@ -11,14 +11,14 @@ from kofte.engine import Translator, translate
 from kofte.errors import FilterError, KofteError, LLMNotConfiguredError, UnknownProfileError
 from kofte.filters import Filter, ForbiddenSubstringFilter, FunctionFilter, RequirePreservedFilter
 from kofte.hosts import InboundMessage, from_browser, from_clipboard, from_slack, translate_inbound
-from kofte.llm import LLMClient, MockLLMClient, OpenAICompatClient, OpenAIJSONClient, build_llm
+from kofte.llm import LLMClient, MockLLMClient, OpenAICompatClient, build_llm
 from kofte.models import TranslationDraft, TranslationRequest, TranslationResult, Turn
 from kofte.profiles import StyleProfile, bundled_profile, list_profiles, load_profile
 from kofte.registers import Register, parse_register
 from kofte.registry import ProfileRegistry
 from kofte.tools import TOOLS, dispatch
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 __all__ = [
     "TOOLS",
@@ -32,7 +32,6 @@ __all__ = [
     "LLMNotConfiguredError",
     "MockLLMClient",
     "OpenAICompatClient",
-    "OpenAIJSONClient",
     "ProfileRegistry",
     "Register",
     "RequirePreservedFilter",

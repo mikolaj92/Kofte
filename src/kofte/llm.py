@@ -1,4 +1,4 @@
-"""Replaceable LLM. Any OpenAI-compatible /v1 endpoint. API key optional."""
+"""Replaceable LLM. Any /v1 chat-completions endpoint. Bearer token optional."""
 
 from __future__ import annotations
 
@@ -53,11 +53,11 @@ class MockLLMClient:
 
 
 class OpenAICompatClient:
-    """Chat Completions client for any OpenAI-compatible server.
+    """HTTP client for any server that speaks ``/v1/chat/completions``.
 
-    Works with LM Studio, Ollama, vLLM, llama.cpp, OpenAI, Azure-style
-    proxies, etc. Talks HTTP to ``{base_url}/chat/completions``. No vendor
-    SDK. ``api_key`` is optional — local servers usually do not need one.
+    LM Studio, Ollama, vLLM, llama.cpp, and similar. Talks to
+    ``{base_url}/chat/completions``. No vendor SDK. ``api_key`` is an
+    optional bearer for servers that ask for one — it is not an OpenAI key.
     """
 
     class HTTPError(RuntimeError):
@@ -136,9 +136,6 @@ class OpenAICompatClient:
             raise OpenAICompatClient.HTTPError(exc.code, body) from exc
 
 
-OpenAIJSONClient = OpenAICompatClient
-
-
 def _join_chat_url(base_url: str) -> str:
     base = base_url if base_url.endswith("/") else base_url + "/"
     return urljoin(base, "chat/completions")
@@ -176,14 +173,13 @@ def build_llm(
 
     ``KOFTE_LLM=none`` → None.
     ``KOFTE_LLM=mock`` → MockLLMClient.
-    Otherwise any OpenAI-compatible server:
+    Otherwise a /v1 chat-completions server:
 
-    - ``KOFTE_LLM_BASE_URL`` / ``base_url`` (required to auto-build)
-    - ``KOFTE_LLM_MODEL`` / ``model``
-    - ``KOFTE_LLM_API_KEY`` or ``OPENAI_API_KEY`` (optional)
+    - ``KOFTE_LLM_BASE_URL`` / ``base_url`` (required)
+    - ``KOFTE_LLM_MODEL`` / ``model`` (required)
+    - ``KOFTE_LLM_API_KEY`` / ``api_key`` (optional bearer)
 
-    If only an API key is set, ``base_url`` defaults to ``https://api.openai.com/v1``.
-    A local server needs a URL and a model, not a key.
+    No default URL. No vendor key names. No default model.
     """
     kind = os.environ.get("KOFTE_LLM", "").strip().lower()
     if kind in {"none", "off", "0"}:
@@ -193,16 +189,7 @@ def build_llm(
 
     url = (base_url or os.environ.get("KOFTE_LLM_BASE_URL") or "").strip()
     name = (model or os.environ.get("KOFTE_LLM_MODEL") or "").strip()
-    key = (
-        api_key
-        or os.environ.get("KOFTE_LLM_API_KEY")
-        or os.environ.get("OPENAI_API_KEY")
-        or ""
-    ).strip() or None
-
-    if not url and key:
-        url = "https://api.openai.com/v1"
-        name = name or "gpt-4.1-mini"
+    key = (api_key or os.environ.get("KOFTE_LLM_API_KEY") or "").strip() or None
     if not url or not name:
         return None
     return OpenAICompatClient(base_url=url, model=name, api_key=key)

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from kofte.llm import OpenAICompatClient, OpenAIJSONClient, build_llm
+from kofte.llm import OpenAICompatClient, build_llm
 from kofte.models import TranslationDraft
 
 
@@ -89,12 +89,7 @@ def test_falls_back_when_json_schema_rejected():
     assert "response_format" not in calls[1]
 
 
-def test_openai_json_client_is_alias():
-    assert OpenAIJSONClient is OpenAICompatClient
-
-
 def test_build_llm_from_base_url_does_not_need_api_key(monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("KOFTE_LLM_BASE_URL", "http://127.0.0.1:1234/v1")
     monkeypatch.setenv("KOFTE_LLM_MODEL", "qwen")
     llm = build_llm()
@@ -105,9 +100,9 @@ def test_build_llm_from_base_url_does_not_need_api_key(monkeypatch):
 
 
 def test_build_llm_none_without_url(monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("KOFTE_LLM_BASE_URL", raising=False)
     monkeypatch.delenv("KOFTE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("KOFTE_LLM_API_KEY", raising=False)
     monkeypatch.delenv("KOFTE_LLM", raising=False)
     assert build_llm() is None
 
@@ -128,8 +123,17 @@ def test_missing_model_with_url_raises():
 
 
 def test_build_llm_url_without_model_is_none(monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("KOFTE_LLM_MODEL", raising=False)
     monkeypatch.delenv("KOFTE_LLM", raising=False)
     monkeypatch.setenv("KOFTE_LLM_BASE_URL", "http://127.0.0.1:1234/v1")
     assert build_llm() is None
+
+
+def test_openai_api_key_env_is_ignored(monkeypatch):
+    monkeypatch.delenv("KOFTE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("KOFTE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("KOFTE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("KOFTE_LLM", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-not-used")
+    llm = build_llm()
+    assert llm is None

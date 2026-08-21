@@ -2,7 +2,7 @@
 
 Open cultural style-translation layer.
 
-A message has two axes: **language** and **style**. Kofte rewrites one, the other, or both. It is an engine other hosts sit on: Python, CLI, MCP, OpenAI-style tool calls, Slack events, a browser selection, a clipboard.
+A message has two axes: **language** and **style**. Kofte rewrites one, the other, or both. It is an engine other hosts sit on: Python, CLI, MCP, function-calling tools, Slack events, a browser selection, a clipboard.
 
 The only shipped, fully worked example is:
 
@@ -28,7 +28,7 @@ uv add 'kofte[mcp]'   # optional, for the MCP server
 ```python
 from kofte import OpenAICompatClient, Translator
 
-# Any OpenAI-compatible /v1 server. API key is optional.
+# Any /v1 chat-completions server. Bearer token is optional.
 llm = OpenAICompatClient(
     base_url="http://127.0.0.1:1234/v1",
     model="local-model",
@@ -169,7 +169,7 @@ from kofte.mcp_server import create_server
 server = create_server(llm=OpenAICompatClient(base_url="http://127.0.0.1:1234/v1", model="local-model"))
 ```
 
-## OpenAI-style tool calls (no MCP)
+## Function-calling tools (no MCP)
 
 Same three tools, as JSON schema:
 
@@ -213,7 +213,7 @@ kofte translate --json --source en+polish_direct --target en+norwegian_jante "Th
 kofte mcp
 ```
 
-`kofte translate` talks to any OpenAI-compatible server:
+`kofte translate` talks to any `/v1/chat/completions` server:
 
 ```bash
 kofte translate --base-url http://127.0.0.1:1234/v1 --model qwen \
@@ -221,7 +221,7 @@ kofte translate --base-url http://127.0.0.1:1234/v1 --model qwen \
 ```
 
 Env instead of flags: `KOFTE_LLM_BASE_URL`, `KOFTE_LLM_MODEL`, optional `KOFTE_LLM_API_KEY`.
-No OpenAI account required. Local LM Studio / Ollama / vLLM / llama.cpp is enough.
+LM Studio / Ollama / vLLM / llama.cpp is enough. There is no OpenAI default.
 
 ## Translation rules (Jante)
 
@@ -243,7 +243,7 @@ The LLM writes the rewrite. Optional `after` filters can reject a bad one.
 - **Registers** (`en+norwegian_jante`) split language from style.
 - **Profiles** are TOML + Markdown. Culture is data.
 - **Translator** is the reusable engine: registry + LLM + filters.
-- **LLM** is a protocol. `OpenAICompatClient` talks HTTP to any `/v1/chat/completions`. Key optional. Or inject your own.
+- **LLM** is a protocol. `OpenAICompatClient` talks HTTP to `{base_url}/chat/completions`. Bearer optional. No vendor default. Or inject your own.
 - **MCP and TOOLS** are the same three calls.
 - **Hosts** convert Slack / browser / clipboard into `InboundMessage`.
 

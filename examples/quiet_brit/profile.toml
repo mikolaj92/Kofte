@@ -1,0 +1,15 @@
+id = "quiet_brit"
+name = "Quiet British understatement"
+language_hint = "en"
+summary = "Understate, never boast, leave an exit."
+supreme = ["understatement", "face"]
+
+[[axes]]
+id = "understatement"
+name = "Understatement"
+description = "Say less than you mean."
+
+[[axes]]
+id = "face"
+name = "Face"
+description = "Leave the other person a way out."

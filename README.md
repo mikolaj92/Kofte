@@ -2,14 +2,12 @@
 
 Open cultural style-translation layer.
 
-A message has two axes: **language** and **style**. Kofte rewrites one, the other, or both.
+A message has two axes: **language** and **style**. Kofte rewrites one, the other, or both. It is an engine other hosts sit on: Python, CLI, MCP, OpenAI-style tool calls, Slack events, a browser selection, a clipboard.
 
 The only shipped, fully worked example is:
 
 > Polish — language of directness and productivity
 > → Norwegian — Janteloven + egalitarianism as the supreme traits.
-
-That is a *style* translation, not only a language translation. These are all legal:
 
 | source | target | what changes |
 | --- | --- | --- |
@@ -18,54 +16,43 @@ That is a *style* translation, not only a language translation. These are all le
 | `en+polish_direct` | `en+norwegian_jante` | style only, English stays English |
 | `en+polish_direct` | `nb+polish_direct` | language only, blunt register stays |
 
-The library is the same shape as the emitype translator: a message (plus optional conversation context) goes through a profile ontology and comes out rewritten. Profiles are data folders. The LLM is injected. Kofte does not own a vendor.
-
 ## Install
 
 ```bash
 uv add git+https://github.com/mikolaj92/Kofte.git
+# optional extras
+uv add 'kofte[openai]'
+uv add 'kofte[mcp]'
 ```
 
-or
-
-```bash
-pip install git+https://github.com/mikolaj92/Kofte.git
-```
-
-## Usage
+## Engine
 
 ```python
-from kofte import MockLLMClient, TranslationDraft, translate
+from kofte import Translator
+from kofte.llm import OpenAIJSONClient
 
-llm = MockLLMClient(
-    responses=[
-        TranslationDraft(
-            text="Something here does not work yet. We could look at it again together.",
-            language="en",
-            style="norwegian_jante",
-            moves=["we instead of you", "softened the verdict"],
-            preserved=["does not work"],
-        )
-    ]
-)
-
-result = translate(
+engine = Translator(llm=OpenAIJSONClient())
+result = engine.translate(
     "This is wrong. Fix it.",
     source="en+polish_direct",
     target="en+norwegian_jante",
-    llm=llm,
 )
-
 print(result.text)
 print(result.language_changed, result.style_changed)
 ```
 
-With conversation context:
+One-shot helper still exists:
 
 ```python
-from kofte import Turn, translate
+from kofte import translate
+```
 
-result = translate(
+Conversation context is a list of turns:
+
+```python
+from kofte import Turn
+
+engine.translate(
     "This PR is a mess. Do it again.",
     source="en+polish_direct",
     target="en+norwegian_jante",
@@ -73,74 +60,182 @@ result = translate(
         Turn(role="user", text="Could you review my pull request?"),
         Turn(role="assistant", text="Sure."),
     ],
-    llm=llm,
 )
 ```
 
-Wire any LLM that implements `complete_json(messages, schema) -> BaseModel`. A 15-line OpenAI wrapper is in `examples/openai_client.py`.
+## Add a style pack (the “filter”)
+
+A profile is a folder, not a class:
+
+```
+quiet_brit/
+  profile.toml
+  rules.md
+  canon.md
+  examples.md
+  anti_patterns.md
+```
+
+```toml
+id = "quiet_brit"
+name = "Quiet British understatement"
+language_hint = "en"
+summary = "Understate, never boast, leave an exit."
+supreme = ["understatement", "face"]
+
+[[axes]]
+id = "understatement"
+name = "Understatement"
+description = "Say less than you mean."
+
+[[axes]]
+id = "face"
+name = "Face"
+description = "Leave the other person a way out."
+```
+
+Register it, then address it by id:
+
+```python
+from kofte import load_profile
+
+engine.registry.register(load_profile("path/to/quiet_brit"))
+engine.translate(text, source="en+polish_direct", target="en+quiet_brit")
+```
+
+Or load a directory of packs:
+
+```python
+engine.registry.load_dir("path/to/packs")
+```
+
+CLI: `kofte --profile-dir path/to/packs profiles`
+
+Shipped packs:
+
+- `polish_direct` — supreme: **directness**, **productivity**
+- `norwegian_jante` — supreme: **janteloven**, **egalitarianism**
+
+## Pipeline filters
+
+A filter is any object with optional `before(request)` / `after(result, request)`.
+
+```python
+from kofte import ForbiddenSubstringFilter, FunctionFilter, RequirePreservedFilter, Translator
+
+engine = Translator(
+    llm=llm,
+    filters=[
+        RequirePreservedFilter(),
+        ForbiddenSubstringFilter(["garbage", "this is stupid"]),
+        FunctionFilter(
+            name="trim",
+            after=lambda result, request: result.model_copy(update={"text": result.text.strip()}),
+        ),
+    ],
+)
+```
+
+- `before` may rewrite the request (text, registers, context) before the LLM sees it.
+- `after` may rewrite or reject the result (`FilterError`).
+- No base class required. `FunctionFilter` wraps callables.
+
+## MCP
+
+A model can call Kofte as tools: `list_profiles`, `describe_profile`, `translate`.
+
+```bash
+uv run kofte mcp
+# or
+uv run kofte-mcp
+```
+
+Hermes / Claude / Cursor, stdio:
+
+```yaml
+mcp_servers:
+  kofte:
+    command: "uv"
+    args: ["run", "--directory", "/path/to/Kofte", "kofte", "mcp"]
+```
+
+Or in Python:
+
+```python
+from kofte.mcp_server import create_server
+server = create_server(llm=OpenAIJSONClient())
+```
+
+## OpenAI-style tool calls (no MCP)
+
+Same three tools, as JSON schema:
+
+```python
+from kofte import TOOLS, dispatch
+
+# give TOOLS to your model as tools=
+out = dispatch("translate", {
+    "text": "This is wrong. Fix it.",
+    "source": "en+polish_direct",
+    "target": "en+norwegian_jante",
+}, llm=llm)
+```
+
+## Hosts (Slack, browser, clipboard)
+
+Kofte does not ship a Slack app or a Chrome extension. It ships the inbound seam those apps call.
+
+```python
+from kofte import Translator, from_slack, translate_inbound
+
+inbound = from_slack(event, thread=thread_messages)
+result = translate_inbound(engine, inbound, "en+polish_direct", "en+norwegian_jante")
+```
+
+```python
+from kofte import from_browser, from_clipboard
+
+from_clipboard("This is wrong. Fix it.")
+from_browser({"selection": "This is wrong.", "page_url": "https://github.com/x/y/pull/1"})
+```
+
+Wire a Slack bot, a browser extension, or a clipboard watcher on top. The engine stays the same.
 
 ## CLI
 
 ```bash
 kofte profiles
 kofte prompt --source en+polish_direct --target en+norwegian_jante "This is wrong. Fix it."
+OPENAI_API_KEY=... kofte translate --source en+polish_direct --target en+norwegian_jante "This is wrong. Fix it."
+kofte translate --json --source en+polish_direct --target en+norwegian_jante "This is wrong."
+kofte mcp
 ```
 
-`kofte translate` exists but refuses to run without an in-process LLM. The library will not smuggle a default vendor.
+`kofte translate` uses `OPENAI_API_KEY` / `KOFTE_LLM`. No key → it exits 2 and tells you to inject an LLM.
 
-## What a profile is
+## Translation rules (Jante)
 
-A folder:
-
-```
-profile.toml    # id, name, language_hint, summary, supreme axes
-rules.md        # how to write
-canon.md        # source material (for Jante: the ten laws)
-examples.md
-anti_patterns.md
-```
-
-Shipped:
-
-- `polish_direct` — supreme axes: **directness**, **productivity**
-- `norwegian_jante` — supreme axes: **janteloven**, **egalitarianism**
-
-Load your own:
-
-```python
-from kofte import load_profile, translate
-
-quiet = load_profile("path/to/quiet_brit")
-result = translate(
-    "This is wrong. Fix it.",
-    source="en+polish_direct",
-    target="en+quiet_brit",
-    target_profile=quiet,
-    llm=llm,
-)
-```
-
-## Janteloven, not a parody
-
-The Norwegian profile treats Sandemose's ten laws as canon, then reads them as workplace egalitarianism:
+Rules live in the profile, not in Python. The Norwegian pack:
 
 - keep the fact
 - drop status
 - prefer *we*
 - leave a way out
 - one or two clauses of why, not an essay, not their homework
+- not a parody, not fake humility, not empty softness
 
-It is not a cartoon of Norway. Fake humility ("I am probably wrong, but…") is an anti-pattern. Empty softness that deletes the fact is a failed translation.
+The prompt also freezes: language and style are independent; preserve facts and work; do not add a solution.
+
+The LLM writes the rewrite. Optional `after` filters can reject a bad one.
 
 ## Design
 
-Same idea as the emitype translator: the production path is a second reading of the same message, through an ontology, into a description in another register.
-
 - **Registers** (`en+norwegian_jante`) split language from style.
-- **Profiles** are TOML + Markdown. Code does not encode culture.
-- **Prompts** are deterministic. Tests freeze the Jante laws and the "keep the language" rule.
-- **LLM** is a protocol + `MockLLMClient`. No hidden OpenAI import on the default path.
-- **Result** tells you which axis moved (`language_changed`, `style_changed`) and what the model claims it preserved.
+- **Profiles** are TOML + Markdown. Culture is data.
+- **Translator** is the reusable engine: registry + LLM + filters.
+- **LLM** is a protocol. `MockLLMClient` / `OpenAIJSONClient` / inject your own.
+- **MCP and TOOLS** are the same three calls.
+- **Hosts** convert Slack / browser / clipboard into `InboundMessage`.
 
 ## Tests
 

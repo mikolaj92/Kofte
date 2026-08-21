@@ -1,34 +1,46 @@
-"""Minimal CLI: list profiles, print a prompt. Translation needs an injected LLM."""
+"""CLI: list profiles, print a prompt, translate, run MCP."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
-from kofte.profiles import bundled_profile, list_profiles
+from kofte.engine import Translator
+from kofte.errors import KofteError, LLMNotConfiguredError
+from kofte.llm import build_llm
 from kofte.prompts import build_messages
 from kofte.registers import parse_register
-from kofte.translate import resolve_profile
-from kofte.translate import translate as translate_message
+from kofte.registry import ProfileRegistry
+from kofte.tools import result_payload
 
 
-def _cmd_profiles(_: argparse.Namespace) -> int:
-    for name in list_profiles():
-        profile = bundled_profile(name)
+def _engine(args: argparse.Namespace) -> Translator:
+    registry = ProfileRegistry.bundled()
+    extra = getattr(args, "profile_dir", None)
+    if extra:
+        registry.load_dir(extra)
+    return Translator(llm=build_llm(), registry=registry)
+
+
+def _cmd_profiles(args: argparse.Namespace) -> int:
+    engine = _engine(args)
+    for profile in engine.registry:
         supreme = ", ".join(axis.id for axis in profile.supreme)
         sys.stdout.write(f"{profile.id}\t{profile.name}\t{supreme}\n")
     return 0
 
 
 def _cmd_prompt(args: argparse.Namespace) -> int:
+    engine = _engine(args)
     source = parse_register(args.source)
     target = parse_register(args.target)
     messages = build_messages(
         text=args.text,
         source=source,
         target=target,
-        source_profile=resolve_profile(source, None),
-        target_profile=resolve_profile(target, None),
+        source_profile=engine.resolve(source, None),
+        target_profile=engine.resolve(target, None),
     )
     for message in messages:
         sys.stdout.write(f"--- {message['role']} ---\n")
@@ -38,19 +50,42 @@ def _cmd_prompt(args: argparse.Namespace) -> int:
 
 
 def _cmd_translate(args: argparse.Namespace) -> int:
+    engine = _engine(args)
     try:
-        result = translate_message(
-            args.text,
-            source=args.source,
-            target=args.target,
-        )
-    except RuntimeError as exc:
+        result = engine.translate(args.text, source=args.source, target=args.target)
+    except LLMNotConfiguredError as exc:
         sys.stderr.write(f"{exc}\n")
-        sys.stderr.write("Pass an LLM in Python: translate(..., llm=your_client)\n")
+        sys.stderr.write(
+            "Set OPENAI_API_KEY, or inject an LLM in Python: "
+            "Translator(llm=your_client).translate(...)\n"
+        )
         return 2
-    sys.stdout.write(result.text)
-    sys.stdout.write("\n")
+    except KofteError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 2
+    if args.json:
+        sys.stdout.write(json.dumps(result_payload(result), ensure_ascii=False))
+        sys.stdout.write("\n")
+    else:
+        sys.stdout.write(result.text)
+        sys.stdout.write("\n")
     return 0
+
+
+def _cmd_mcp(args: argparse.Namespace) -> int:
+    from kofte.mcp_server import create_server
+
+    engine = _engine(args)
+    server = create_server(translator=engine)
+    server.run("stdio")
+    return 0
+
+
+def _add_profile_dir(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--profile-dir",
+        help="Load extra style profiles from subfolders of this directory.",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -60,20 +95,28 @@ def main(argv: list[str] | None = None) -> int:
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_profiles = sub.add_parser("profiles", help="list bundled style profiles")
+    p_profiles = sub.add_parser("profiles", help="list style profiles")
+    _add_profile_dir(p_profiles)
     p_profiles.set_defaults(func=_cmd_profiles)
 
     p_prompt = sub.add_parser("prompt", help="print the assembled prompt, do not call an LLM")
     p_prompt.add_argument("text")
     p_prompt.add_argument("--source", required=True)
     p_prompt.add_argument("--target", required=True)
+    _add_profile_dir(p_prompt)
     p_prompt.set_defaults(func=_cmd_prompt)
 
-    p_translate = sub.add_parser("translate", help="translate (requires an LLM in-process)")
+    p_translate = sub.add_parser("translate", help="translate a message")
     p_translate.add_argument("text")
     p_translate.add_argument("--source", required=True)
     p_translate.add_argument("--target", required=True)
+    p_translate.add_argument("--json", action="store_true", help="print a JSON result")
+    _add_profile_dir(p_translate)
     p_translate.set_defaults(func=_cmd_translate)
+
+    p_mcp = sub.add_parser("mcp", help="run the MCP server on stdio")
+    _add_profile_dir(p_mcp)
+    p_mcp.set_defaults(func=_cmd_mcp)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

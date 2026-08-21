@@ -1,6 +1,6 @@
 [project]
 name = "kofte"
-version = "0.1.0"
+version = "0.2.0"
 description = "Open cultural style-translation layer: rewrite a message's language and/or register (Polish directness → Norwegian Janteloven is the shipped example)."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,13 +25,17 @@ dependencies = [
 
 [project.optional-dependencies]
 openai = ["openai>=1.0"]
+mcp = ["mcp>=2.0"]
 dev = [
   "pytest>=8.3.0",
+  "pytest-asyncio>=0.25.0",
   "ruff>=0.9.0",
+  "mcp>=2.0",
 ]
 
 [project.scripts]
 kofte = "kofte.cli:main"
+kofte-mcp = "kofte.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/mikolaj92/Kofte"
@@ -48,6 +52,8 @@ packages = ["src/kofte"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 100

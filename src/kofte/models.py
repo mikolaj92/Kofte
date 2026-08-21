@@ -56,3 +56,15 @@ class TranslationResult(BaseModel):
     @property
     def style_changed(self) -> bool:
         return self.target.changes_style(self.source)
+
+
+
+class TranslationRequest(BaseModel):
+    """Normalized request that filters may rewrite before the LLM sees it."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    text: str
+    source: Register
+    target: Register
+    context: tuple[Turn, ...] = ()

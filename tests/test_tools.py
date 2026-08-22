@@ -42,3 +42,47 @@ def test_dispatch_list_profiles():
     ids = {p["id"] for p in out["profiles"]}
     assert "norwegian_jante" in ids
     assert "american_english" in ids
+
+
+def test_dispatch_language_only_does_not_need_a_pack():
+    llm = MockLLMClient(
+        responses=[
+            TranslationDraft(text="This is wrong. Fix it.", language="en", style=None)
+        ]
+    )
+    out = dispatch(
+        "translate",
+        {"text": "To jest źle. Popraw to.", "source": "pl", "target": "en"},
+        llm=llm,
+    )
+    assert out["text"] == "This is wrong. Fix it."
+    assert out["language_changed"] is True
+    assert out["style_changed"] is False
+    assert out["source"] == "pl"
+    assert out["target"] == "en"
+
+
+def test_dispatch_adhoc_form_without_a_pack():
+    llm = MockLLMClient(
+        responses=[
+            TranslationDraft(
+                text="parser.py still drops empty tags. Re-run the fixture.",
+                language="en",
+                style=None,
+            )
+        ]
+    )
+    out = dispatch(
+        "translate",
+        {
+            "text": "This is wrong. Fix it.",
+            "source": "en",
+            "target": "en",
+            "target_form": "Brief reviewer. Dry. Two sentences. Name the file.",
+        },
+        llm=llm,
+    )
+    system = llm.calls[0].messages[0]["content"]
+    assert "Brief reviewer" in system
+    assert "Name the file" in system
+    assert out["language_changed"] is False

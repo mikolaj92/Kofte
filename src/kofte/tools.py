@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from kofte.engine import Translator
+from kofte.lenses import AdHocLens, Lens
 from kofte.llm import LLMClient
 from kofte.models import TranslationResult, Turn
 from kofte.profiles.schema import StyleProfile
@@ -22,11 +23,19 @@ _TRANSLATE_PARAMS = {
         "text": {"type": "string", "description": "The message to rewrite."},
         "source": {
             "type": "string",
-            "description": "Source register, e.g. pl+polish_direct or en+polish_direct.",
+            "description": "Source register, e.g. pl, en, pl+polish_direct.",
         },
         "target": {
             "type": "string",
-            "description": "Target register, e.g. nb+norwegian_jante or en+norwegian_jante.",
+            "description": "Target register, e.g. en, pl, en+american_english, en+norwegian_jante.",
+        },
+        "source_form": {
+            "type": "string",
+            "description": "Optional free-text source voice. Use when there is no profile folder.",
+        },
+        "target_form": {
+            "type": "string",
+            "description": "Optional free-text target voice. Use when there is no profile folder.",
         },
         "context": {
             "type": "array",
@@ -75,14 +84,26 @@ TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "translate",
             "description": (
-                "Rewrite a message from source register to target register. "
-                "Language and style are independent axes: en+norwegian_jante is "
-                "English words in a Norwegian Jante style."
+                "Rewrite a message from one language/form to another. "
+                "Language and style are independent: pl→en changes words; "
+                "en+polish_direct→en+norwegian_jante changes register; "
+                "target_form rewrites into a free-text voice with no pack."
             ),
             "parameters": _TRANSLATE_PARAMS,
         },
     },
 ]
+
+
+
+def _form_lens(role: str, brief: object | None) -> Lens | None:
+    if brief is None:
+        return None
+    text = str(brief).strip()
+    if not text:
+        return None
+    name = "Source form" if role == "source" else "Target form"
+    return AdHocLens(id=f"form:{role}", name=name, summary=text)
 
 
 def register_code(register: Register) -> str:
@@ -158,6 +179,8 @@ def dispatch(
             source=str(arguments["source"]),
             target=str(arguments["target"]),
             context=_turns(arguments.get("context")),
+            source_lens=_form_lens("source", arguments.get("source_form")),
+            target_lens=_form_lens("target", arguments.get("target_form")),
         )
         return result_payload(result)
     raise KeyError(f"unknown tool {name!r}")

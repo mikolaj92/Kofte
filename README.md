@@ -184,14 +184,18 @@ engine = Translator(
 - `after` may rewrite or reject the result (`FilterError`).
 - No base class required. `FunctionFilter` wraps callables.
 
-## MCP
+## Plug in (MCP or skill)
 
-A model can call Kofte as tools: `list_profiles`, `describe_profile`, `translate`.
+The engine is the product surface. Drop it into an agent as MCP, a skill, CLI, or function-calling tools.
+
+MCP:
 
 ```bash
+uv add 'kofte[mcp]'
+export KOFTE_LLM_BASE_URL=http://127.0.0.1:1234/v1
+export KOFTE_LLM_MODEL=local-model
 uv run kofte mcp
-# or
-uv run kofte-mcp
+# or: uv run kofte-mcp
 ```
 
 Hermes / Claude / Cursor, stdio:
@@ -203,7 +207,13 @@ mcp_servers:
     args: ["run", "--directory", "/path/to/Kofte", "kofte", "mcp"]
 ```
 
-Or in Python:
+Skill (copy `skills/kofte/` into the agent skills dir, or point the host at this repo):
+
+```
+skills/kofte/SKILL.md
+```
+
+`translate` takes a language (`pl` → `en`), a packed form (`en+american_english`), or a free-text form (`target_form`).
 
 ```python
 from kofte import OpenAICompatClient
@@ -220,9 +230,16 @@ from kofte import TOOLS, dispatch
 
 # give TOOLS to your model as tools=
 out = dispatch("translate", {
+    "text": "To jest źle. Popraw to.",
+    "source": "pl",
+    "target": "en",
+}, llm=llm)
+
+out = dispatch("translate", {
     "text": "This is wrong. Fix it.",
-    "source": "en+polish_direct",
-    "target": "en+norwegian_jante",
+    "source": "en",
+    "target": "en",
+    "target_form": "Brief reviewer. Name the file.",
 }, llm=llm)
 ```
 
@@ -251,7 +268,9 @@ Wire a Slack bot, a browser extension, or a clipboard watcher on top. The engine
 ```bash
 kofte profiles
 kofte prompt --source en+polish_direct --target en+norwegian_jante "This is wrong. Fix it."
+kofte translate --source pl --target en "To jest źle. Popraw to."
 kofte translate --json --source en+polish_direct --target en+norwegian_jante "This is wrong."
+kofte translate --source en --target en --target-form "Brief reviewer. Name the file." "This is wrong."
 kofte mcp
 ```
 
@@ -287,7 +306,7 @@ The LLM writes the rewrite. Optional `after` filters can reject a bad one.
 - **Lenses** are any voice with `prompt_block`. A folder is one source. A host-built trait list is another.
 - **Translator** is the reusable engine: registry + LLM + filters.
 - **LLM** is a protocol. `OpenAICompatClient` talks HTTP to `{base_url}/chat/completions`. Bearer optional. No vendor default. Or inject your own.
-- **MCP and TOOLS** are the same three calls.
+- **MCP, TOOLS, CLI, and `skills/kofte`** are the same engine. Plug it into an agent.
 - **Hosts** convert Slack / browser / clipboard into `InboundMessage`.
 
 ## Tests

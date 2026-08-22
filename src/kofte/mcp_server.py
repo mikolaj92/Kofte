@@ -33,10 +33,12 @@ def create_server(
 
     server = MCPServer(
         name="kofte",
-        version="0.3.1",
+        version="0.3.2",
         instructions=(
-            "Cultural style translator. Language and style are independent. "
+            "Message translator. Language and style are independent. "
             "Use list_profiles, describe_profile, then translate. "
+            "pl→en changes language. en+polish_direct→en+norwegian_jante changes form. "
+            "target_form is a free-text voice when there is no pack. "
             "en+norwegian_jante means English words in a Norwegian Jante register."
         ),
     )
@@ -59,10 +61,16 @@ def create_server(
         text: str,
         source: str,
         target: str,
+        source_form: str | None = None,
+        target_form: str | None = None,
         context: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
-        """Rewrite a message from source register to target register."""
+        """Rewrite a message from one language/form to another."""
         payload: dict[str, Any] = {"text": text, "source": source, "target": target}
+        if source_form:
+            payload["source_form"] = source_form
+        if target_form:
+            payload["target_form"] = target_form
         if context:
             payload["context"] = context
         return _call("translate", payload)

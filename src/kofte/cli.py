@@ -8,11 +8,19 @@ import sys
 
 from kofte.engine import Translator
 from kofte.errors import KofteError, LLMNotConfiguredError
+from kofte.lenses import AdHocLens
 from kofte.llm import build_llm
 from kofte.prompts import build_messages
 from kofte.registers import parse_register
 from kofte.registry import ProfileRegistry
 from kofte.tools import result_payload
+
+
+def _form_lens(role: str, brief: str | None):
+    if not brief or not str(brief).strip():
+        return None
+    name = "Source form" if role == "source" else "Target form"
+    return AdHocLens(id=f"form:{role}", name=name, summary=str(brief).strip())
 
 
 def _engine(args: argparse.Namespace) -> Translator:
@@ -57,7 +65,13 @@ def _cmd_prompt(args: argparse.Namespace) -> int:
 def _cmd_translate(args: argparse.Namespace) -> int:
     engine = _engine(args)
     try:
-        result = engine.translate(args.text, source=args.source, target=args.target)
+        result = engine.translate(
+            args.text,
+            source=args.source,
+            target=args.target,
+            source_lens=_form_lens("source", getattr(args, "source_form", None)),
+            target_lens=_form_lens("target", getattr(args, "target_form", None)),
+        )
     except LLMNotConfiguredError as exc:
         sys.stderr.write(f"{exc}\n")
         sys.stderr.write(
@@ -113,7 +127,7 @@ def _add_llm_flags(parser: argparse.ArgumentParser) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="kofte",
-        description="Cultural style translator. Language and style are independent axes.",
+        description="Message translator. Language and form are independent axes.",
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -136,6 +150,14 @@ def main(argv: list[str] | None = None) -> int:
     p_translate.add_argument("--source", required=True)
     p_translate.add_argument("--target", required=True)
     p_translate.add_argument("--json", action="store_true", help="print a JSON result")
+    p_translate.add_argument(
+        "--source-form",
+        help="Free-text source voice when there is no profile folder.",
+    )
+    p_translate.add_argument(
+        "--target-form",
+        help="Free-text target voice when there is no profile folder.",
+    )
     _add_profile_dir(p_translate)
     _add_llm_flags(p_translate)
     p_translate.set_defaults(func=_cmd_translate)

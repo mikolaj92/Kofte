@@ -20,7 +20,7 @@ from kofte.registers import Register, parse_register
 from kofte.registry import ProfileRegistry
 from kofte.tools import TOOLS, dispatch
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 __all__ = [
     "TOOLS",

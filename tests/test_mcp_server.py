@@ -77,3 +77,42 @@ def _payload(result):
     if isinstance(result, dict):
         return result
     raise AssertionError(f"unreadable MCP result: {result!r}")
+
+
+@pytest.mark.asyncio
+async def test_mcp_translate_language_only():
+    llm = MockLLMClient(
+        responses=[
+            TranslationDraft(text="This is wrong. Fix it.", language="en", style=None)
+        ]
+    )
+    server = create_server(llm=llm)
+    result = await server.call_tool(
+        "translate",
+        {"text": "To jest źle. Popraw to.", "source": "pl", "target": "en"},
+    )
+    payload = _payload(result)
+    assert payload["text"] == "This is wrong. Fix it."
+    assert payload["language_changed"] is True
+    assert payload["style_changed"] is False
+
+
+@pytest.mark.asyncio
+async def test_mcp_translate_adhoc_form():
+    llm = MockLLMClient(
+        responses=[TranslationDraft(text="ok", language="en", style=None)]
+    )
+    server = create_server(llm=llm)
+    result = await server.call_tool(
+        "translate",
+        {
+            "text": "This is wrong. Fix it.",
+            "source": "en",
+            "target": "en",
+            "target_form": "Brief reviewer. Name the file.",
+        },
+    )
+    payload = _payload(result)
+    assert payload["text"] == "ok"
+    system = llm.calls[0].messages[0]["content"]
+    assert "Brief reviewer" in system

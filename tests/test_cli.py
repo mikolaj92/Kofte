@@ -161,3 +161,37 @@ def test_cli_missing_llm_mentions_base_url_not_openai_key(capsys, monkeypatch):
     assert code == 2
     assert "base-url" in err
     assert "openai_api_key" not in err
+
+
+def test_cli_translate_language_only(capsys, monkeypatch):
+    llm = MockLLMClient(
+        responses=[TranslationDraft(text="This is wrong.", language="en", style=None)]
+    )
+    monkeypatch.setattr("kofte.cli.build_llm", lambda **kwargs: llm)
+    code = main(
+        ["translate", "--source", "pl", "--target", "en", "To jest źle."]
+    )
+    assert code == 0
+    assert "This is wrong." in capsys.readouterr().out
+
+
+def test_cli_translate_target_form(capsys, monkeypatch):
+    llm = MockLLMClient(
+        responses=[TranslationDraft(text="ok", language="en", style=None)]
+    )
+    monkeypatch.setattr("kofte.cli.build_llm", lambda **kwargs: llm)
+    code = main(
+        [
+            "translate",
+            "--source",
+            "en",
+            "--target",
+            "en",
+            "--target-form",
+            "Brief reviewer. Name the file.",
+            "This is wrong. Fix it.",
+        ]
+    )
+    assert code == 0
+    assert "ok" in capsys.readouterr().out
+    assert "Brief reviewer" in llm.calls[0].messages[0]["content"]

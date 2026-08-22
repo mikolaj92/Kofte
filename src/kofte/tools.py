@@ -40,8 +40,8 @@ _TRANSLATE_PARAMS = {
         "hops": {
             "type": "array",
             "description": (
-                "Compose registers in one pass, e.g. [pl, en, en+kofte]. "
-                "First hop is the source, last hop is the target. "
+                "Output registers in one pass, e.g. [en+kofte] or [en, en+kofte]. "
+                "Source language is optional — the model detects it. "
                 "No intermediate rewrite — facts come from the original."
             ),
             "items": {"type": "string"},
@@ -95,7 +95,7 @@ TOOLS: list[dict[str, Any]] = [
             "description": (
                 "Rewrite a message from one language/form to another. "
                 "pl→en changes words. en+kofte is English in the Norwegian voice. "
-                "hops=[pl, en, en+kofte] is one pass from the original. "
+                "hops=[en+kofte] is one pass; source language is optional. "
                 "target_form is a free-text voice when there is no pack."
             ),
             "parameters": _TRANSLATE_PARAMS,
@@ -116,9 +116,10 @@ def _form_lens(role: str, brief: object | None) -> Lens | None:
 
 
 def register_code(register: Register) -> str:
+    lang = register.language or "auto"
     if register.style:
-        return f"{register.language}+{register.style}"
-    return register.language
+        return f"{lang}+{register.style}"
+    return lang
 
 
 def profile_summary(profile: StyleProfile) -> dict[str, Any]:

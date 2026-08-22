@@ -218,3 +218,18 @@ def test_cli_compose_hops(capsys, monkeypatch):
     assert "We look again." in capsys.readouterr().out
     assert len(llm.calls) == 1
     assert "to jest źle" in llm.calls[0].messages[-1]["content"].lower()
+
+
+def test_cli_single_hop_infers_source(capsys, monkeypatch):
+    llm = MockLLMClient(
+        responses=[
+            TranslationDraft(text="We look again.", language="en", style="kofte"),
+        ]
+    )
+    monkeypatch.setattr("kofte.cli.build_llm", lambda **kwargs: llm)
+    code = main(["translate", "--hops", "en+kofte", "To jest źle."])
+    assert code == 0
+    assert "We look again." in capsys.readouterr().out
+    assert len(llm.calls) == 1
+    system = llm.calls[0].messages[0]["content"].lower()
+    assert "detect" in system or "infer" in system

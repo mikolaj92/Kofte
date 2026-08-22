@@ -5,7 +5,8 @@ A voice is a Lens: a style folder, or a host-built trait list.
 
 Kofte is a Norwegian word. The shipped Norwegian voice is addressable
 as ``kofte`` (alias of ``norwegian_jante``). Compose hops to change
-language, then form, in one pass: ``pl → en → en+kofte``.
+language, then form, in one pass. ``hops=['en+kofte']`` is enough;
+the source language is optional and inferred from the message.
 """
 
 from kofte.engine import Translator, translate
@@ -20,7 +21,7 @@ from kofte.registers import Register, parse_register
 from kofte.registry import ProfileRegistry
 from kofte.tools import TOOLS, dispatch
 
-__version__ = "0.3.4"
+__version__ = "0.3.5"
 
 __all__ = [
     "TOOLS",

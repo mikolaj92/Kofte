@@ -36,3 +36,20 @@ def test_parse_register_accepts_language_plus_style():
 def test_unknown_language_is_rejected():
     with pytest.raises(ValueError, match="language"):
         Register(language="xx", style="norwegian_jante")
+
+
+def test_register_allows_inferred_language():
+    r = Register()
+    assert r.language is None
+    assert r.style is None
+    assert r.changes_language(Register(language="en")) is True
+    assert Register(language="und").language is None
+    assert Register(language="auto").language is None
+
+
+def test_parse_register_accepts_style_only():
+    r = parse_register("kofte")
+    assert r.language is None
+    assert r.style == "kofte"
+    assert parse_register("+kofte").style == "kofte"
+    assert parse_register("auto").language is None

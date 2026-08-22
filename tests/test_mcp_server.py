@@ -135,3 +135,24 @@ async def test_mcp_compose_hops():
     assert payload["target"] == "en+kofte"
     assert len(llm.calls) == 1
     assert "to jest źle" in llm.calls[0].messages[-1]["content"].lower()
+
+
+@pytest.mark.asyncio
+async def test_mcp_single_hop_infers_source():
+    llm = MockLLMClient(
+        responses=[
+            TranslationDraft(text="We look again.", language="en", style="kofte"),
+        ]
+    )
+    server = create_server(llm=llm)
+    result = await server.call_tool(
+        "translate",
+        {"text": "To jest źle.", "hops": ["en+kofte"]},
+    )
+    payload = _payload(result)
+    assert payload["text"] == "We look again."
+    assert payload["target"] == "en+kofte"
+    assert payload["source"] == "auto"
+    assert len(llm.calls) == 1
+    system = llm.calls[0].messages[0]["content"].lower()
+    assert "detect" in system or "infer" in system

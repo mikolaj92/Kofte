@@ -16,7 +16,7 @@ llm = MockLLMClient(
 
 result = translate(
     "To jest źle. Popraw to.",
-    hops=["pl", "en", "en+kofte"],
+    hops=["en+kofte"],
     llm=llm,
 )
 print(result.text)

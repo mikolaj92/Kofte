@@ -21,36 +21,63 @@ _LANGUAGE_NAMES = {
 }
 
 
-def language_name(code: str) -> str:
+def language_name(code: str | None) -> str:
+    if not code:
+        return "the language of the message"
     return _LANGUAGE_NAMES.get(code, code)
 
 
 def _register_label(register: Register) -> str:
-    lang = language_name(register.language)
+    lang = language_name(register.language) if register.language else "detected language"
     if register.style:
         return f"{lang} + {register.style}"
     return lang
 
 
-def _hops_instruction(hops: Sequence[Register] | None) -> str:
-    if not hops or len(hops) < 3:
+def _hops_instruction(
+    hops: Sequence[Register] | None, source: Register | None = None
+) -> str:
+    if not hops:
         return ""
     path = " → ".join(_register_label(item) for item in hops)
+    infer = source is None or source.language is None
+    infer_bit = (
+        "Infer the input language from the original message. " if infer else ""
+    )
+    if len(hops) == 1:
+        return (
+            f"Output: {path}. {infer_bit}"
+            "Do this in one pass. Do not write an intermediate version. "
+            "Facts come from the original."
+        )
     return (
-        f"Path: {path}. Do this in one pass from the original message. "
+        f"Outputs: {path}. {infer_bit}"
+        "Do this in one pass from the original. "
         "Do not write an intermediate version. Do not play telephone. "
         "Facts come from the original, not from a half-translated draft."
     )
 
 
 def _language_instruction(source: Register, target: Register) -> str:
+    if source.language is None and target.language is None:
+        return (
+            "Detect the language of the original message. "
+            "Keep that language in the output unless a hop names a language."
+        )
+    if source.language is None:
+        dst = language_name(target.language)
+        return (
+            "Detect the language of the original message. "
+            f"The output language is {dst}."
+        )
     src = language_name(source.language)
-    dst = language_name(target.language)
-    if source.language == target.language:
+    if target.language is None or source.language == target.language:
+        dst = language_name(target.language or source.language)
         return (
             f"Keep the language. The output must stay in {dst}. "
             "Do not translate the language. Rewrite style only."
         )
+    dst = language_name(target.language)
     return (
         f"Translate the language from {src} to {dst}. "
         f"The output language is {dst}."
@@ -116,7 +143,7 @@ def build_messages(
         "Return JSON matching the given schema.",
         _language_instruction(source, target),
         _style_instruction(source, target, source_lens, target_lens),
-        _hops_instruction(hops),
+        _hops_instruction(hops, source),
     ]
     if source_lens is not None:
         system_parts.append(source_lens.prompt_block("Source style"))

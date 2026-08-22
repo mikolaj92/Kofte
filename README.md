@@ -4,13 +4,13 @@ Open message-translation layer. **Kofte** is a Norwegian word. Language and styl
 
 A message has two axes: **language** and **style**. Change one, then the other. Compose hops. The engine sits under Python, CLI, MCP, a skill, function-calling tools, Slack, a browser, a clipboard.
 
-The built-in Norwegian voice is `kofte` (alias of `norwegian_jante`). Typical compose is **one pass**, not two rewrites (no telephone):
+The built-in Norwegian voice is `kofte` (alias of `norwegian_jante`). Hops are **outputs**. Source language is optional — the model detects it. One pass, no telephone:
 
 ```python
-translate("To jest źle. Popraw to.", hops=["pl", "en", "en+kofte"], llm=llm)
+translate("To jest źle. Popraw to.", hops=["en+kofte"], llm=llm)
 ```
 
-`hops` names the path. The LLM sees the original Polish once and writes English Kofte. Intermediate hops are not extra calls.
+The LLM sees the original once and writes English Kofte. `hops=["en", "en+kofte"]` names extra outputs. `source="pl"` pins the input when you already know it.
 
 | source | target | what you get |
 | --- | --- | --- |
@@ -238,7 +238,7 @@ from kofte import TOOLS, dispatch
 # give TOOLS to your model as tools=
 out = dispatch("translate", {
     "text": "To jest źle. Popraw to.",
-    "hops": ["pl", "en", "en+kofte"],
+    "hops": ["en+kofte"],
 }, llm=llm)
 
 out = dispatch("translate", {
@@ -276,7 +276,7 @@ kofte profiles
 kofte prompt --source en --target en+kofte "This is wrong. Fix it."
 kofte translate --source pl --target en "To jest źle. Popraw to."
 kofte translate --source en --target en+kofte "This is wrong. Fix it."
-kofte translate --hops pl,en,en+kofte "To jest źle. Popraw to."
+kofte translate --hops en+kofte "To jest źle. Popraw to."
 kofte translate --source en --target en --target-form "Brief reviewer. Name the file." "This is wrong."
 kofte mcp
 ```
@@ -285,7 +285,7 @@ kofte mcp
 
 ```bash
 kofte translate --base-url http://127.0.0.1:1234/v1 --model qwen \
-  --hops pl,en,en+kofte "To jest źle. Popraw to."
+  --hops en+kofte "To jest źle. Popraw to."
 ```
 
 Env instead of flags: `KOFTE_LLM_BASE_URL`, `KOFTE_LLM_MODEL`, optional `KOFTE_LLM_API_KEY`.
@@ -309,7 +309,7 @@ The LLM writes the rewrite. Optional `after` filters can reject a bad one.
 ## Design
 
 - **Registers** (`en+kofte`, `en+american_english`) split language from style. `kofte` is the Norwegian voice.
-- **Hops** name a path (`pl → en → en+kofte`) and run as **one pass** from the original. No telephone.
+- **Hops** are outputs (`en+kofte`). Source language is optional and inferred. One pass, no telephone.
 - **Profiles** are TOML + Markdown. Culture is data.
 - **Lenses** are any voice with `prompt_block`. A folder is one source. A host-built trait list is another.
 - **Translator** is the reusable engine: registry + LLM + filters.

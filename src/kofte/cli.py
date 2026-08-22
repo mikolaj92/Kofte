@@ -162,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     p_translate.add_argument("--target", default=None)
     p_translate.add_argument(
         "--hops",
-        help="One-pass path, comma-separated: pl,en,en+kofte",
+        help="Output registers, comma-separated: en+kofte (source is optional)",
     )
     p_translate.add_argument("--json", action="store_true", help="print a JSON result")
     p_translate.add_argument(

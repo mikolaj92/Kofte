@@ -14,27 +14,21 @@ from kofte.registers import Register, parse_register
 from kofte.registry import ProfileRegistry
 
 
-def _hop_chain(
+def _route(
     source: str | Register | None,
     target: str | Register | None,
     hops: Sequence[str | Register] | None,
-) -> list[Register]:
-    if hops:
-        chain = [parse_register(item) for item in hops]
-        if source is not None:
-            start = parse_register(source)
-            if not chain or chain[0] != start:
-                chain = [start, *chain]
-        if target is not None:
-            end = parse_register(target)
-            if chain[-1] != end:
-                chain.append(end)
-        if len(chain) < 2:
-            raise ValueError("hops needs at least two registers, e.g. pl,en,en+kofte")
-        return chain
-    if source is None or target is None:
-        raise ValueError("source and target are required unless hops is set")
-    return [parse_register(source), parse_register(target)]
+) -> tuple[Register, Register, list[Register] | None]:
+    """Hops are outputs. Source is optional and inferred when omitted."""
+    outputs = [parse_register(item) for item in hops] if hops else []
+    src = parse_register(source) if source is not None else Register()
+    if target is not None:
+        end = parse_register(target)
+        if not outputs or outputs[-1] != end:
+            outputs.append(end)
+    if not outputs:
+        raise ValueError("hops or target is required")
+    return src, outputs[-1], outputs
 
 
 class Translator:
@@ -43,8 +37,9 @@ class Translator:
     Bundled profiles are loaded by default. Register more, inject filters,
     swap the LLM. Pass a Lens when the voice is not a register style id.
 
-    hops=["pl", "en", "en+kofte"] is one pass: original Polish in, English
-    Kofte out. Intermediate hops are the path, not extra LLM calls.
+    hops=["en+kofte"] is one pass from the original. The source language
+    is optional: the LLM detects it. Intermediate hops name outputs, not
+    extra LLM calls.
     """
 
     def __init__(
@@ -84,20 +79,20 @@ class Translator:
         if client is None:
             raise LLMNotConfiguredError("llm is required")
 
-        chain = _hop_chain(source, target, hops)
+        src, dst, outputs = _route(source, target, hops)
         src_override = source_lens or source_profile
         dst_override = target_lens or target_profile
         return self._one(
             text=text,
-            source=chain[0],
-            target=chain[-1],
+            source=src,
+            target=dst,
             original=text,
             context=context,
             client=client,
             source_lens=src_override,
             target_lens=dst_override,
             filters=filters,
-            hops=chain,
+            hops=outputs if hops else None,
         )
 
     def _one(
@@ -177,8 +172,8 @@ def translate(
 ) -> TranslationResult:
     """One-shot translation. Builds a Translator with bundled profiles.
 
-    ``hops=["pl", "en", "en+kofte"]`` is one pass from the original.
-    Intermediate hops name the path. They are not extra LLM calls.
+    ``hops=["en+kofte"]`` is one pass from the original. Source language
+    is optional. The LLM detects it when omitted.
     """
     engine = Translator(llm=llm, registry=registry, filters=filters or ())
     return engine.translate(

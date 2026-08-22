@@ -33,13 +33,13 @@ def create_server(
 
     server = MCPServer(
         name="kofte",
-        version="0.3.4",
+        version="0.3.5",
         instructions=(
             "Message translator. Language and style are independent. "
             "Use list_profiles, describe_profile, then translate. "
-            "pl→en changes language. en+kofte is English in the Norwegian voice. "
-            "hops=[pl, en, en+kofte] is one pass from the original. "
-            "kofte is an alias of norwegian_jante. "
+            "hops are outputs: hops=[en+kofte] is one pass. "
+            "Source language is optional — detect it from the message. "
+            "kofte is the Norwegian voice (alias of norwegian_jante). "
             "target_form is a free-text voice when there is no pack."
         ),
     )
@@ -69,7 +69,7 @@ def create_server(
     ) -> dict[str, Any]:
         """Rewrite a message from one language/form to another.
 
-        hops=[pl, en, en+kofte] is one pass: original Polish in, English Kofte out.
+        hops=[en+kofte] is one pass from the original. Source language is optional.
         """
         payload: dict[str, Any] = {"text": text}
         if source:

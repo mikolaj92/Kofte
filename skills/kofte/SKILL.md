@@ -1,6 +1,6 @@
 ---
 name: kofte
-description: Rewrite a message from one language or form to another via the Kofte engine. Use when translating language (pl→en), restyling into the Norwegian Kofte voice (en+kofte), one-pass hops (pl,en,en+kofte), or plugging Kofte in as MCP / CLI / function-calling tools.
+description: Rewrite a message from one language or form to another via the Kofte engine. Use when translating language (pl→en), restyling into the Norwegian Kofte voice (en+kofte), output hops (en+kofte), or plugging Kofte in as MCP / CLI / function-calling tools.
 license: MIT
 ---
 
@@ -10,7 +10,7 @@ Kofte is a Norwegian word and a translation engine. Language and form are indepe
 
 - `pl` → `en` changes words.
 - `en` → `en+kofte` keeps English, applies the Norwegian voice (Janteloven).
-- hops `pl,en,en+kofte` is one pass from the original. Not two LLM calls.
+- hops are outputs. `en+kofte` is enough. Source language is optional; the model detects it.
 - `kofte` is the built-in alias of `norwegian_jante`.
 - `target_form` is a free-text voice when there is no pack.
 
@@ -39,7 +39,7 @@ Tools: `list_profiles`, `describe_profile`, `translate`.
 ```bash
 kofte translate --source pl --target en "To jest źle. Popraw to."
 kofte translate --source en --target en+kofte "This is wrong. Fix it."
-kofte translate --hops pl,en,en+kofte "To jest źle. Popraw to."
+kofte translate --hops en+kofte "To jest źle. Popraw to."
 kofte translate --source pl+polish_direct --target en+american_english "To jest źle."
 kofte translate --source en --target en --target-form "Brief reviewer. Name the file." "This is wrong. Fix it."
 ```
@@ -48,7 +48,7 @@ kofte translate --source en --target en --target-form "Brief reviewer. Name the 
 
 ```python
 from kofte import TOOLS, dispatch
-out = dispatch("translate", {"text": text, "hops": ["pl", "en", "en+kofte"]}, llm=llm)
+out = dispatch("translate", {"text": text, "hops": ["en+kofte"]}, llm=llm)
 ```
 
 ## Registers

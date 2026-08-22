@@ -1,0 +1,15 @@
+id = "american_english"
+name = "American English"
+language_hint = "en"
+summary = "Own the next step. Keep it upbeat. Agency and positivity are supreme."
+supreme = ["agency", "positivity"]
+
+[[axes]]
+id = "agency"
+name = "Agency"
+description = "The speaker is the owner of the next step. Prefer I and I'll. Name what you will do, not what they must do."
+
+[[axes]]
+id = "positivity"
+name = "Positivity"
+description = "The work can still be wrong. The tone stays constructive. Lead with what is still possible, then the gap."

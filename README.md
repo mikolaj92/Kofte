@@ -4,15 +4,13 @@ Open message-translation layer. Language and style are independent. A voice is a
 
 A message has two axes: **language** and **style**. Kofte rewrites one, the other, or both. It is an engine other hosts sit on: Python, CLI, MCP, function-calling tools, Slack events, a browser selection, a clipboard.
 
-The only shipped, fully worked example is:
+Two shipped routes, same Polish source:
 
-> Polish — language of directness and productivity
-> → Norwegian — Janteloven + egalitarianism as the supreme traits.
-
-| source | target | what changes |
+| source | target | what you get |
 | --- | --- | --- |
-| `pl+polish_direct` | `nb+norwegian_jante` | language and style |
-| `pl+polish_direct` | `en+norwegian_jante` | language to English, style to Jante |
+| `pl+polish_direct` | `en+american_english` | English words, American agency |
+| `pl+polish_direct` | `en+norwegian_jante` | English words, Janteloven register |
+| `pl+polish_direct` | `nb+norwegian_jante` | Bokmål words, Janteloven register |
 | `en+polish_direct` | `en+norwegian_jante` | style only, English stays English |
 | `en+polish_direct` | `nb+polish_direct` | language only, blunt register stays |
 
@@ -69,45 +67,44 @@ engine.translate(
 
 A **Lens** is the voice the rewrite should match. Two sources, one engine:
 
-- a **style folder** (`polish_direct`, `norwegian_jante`, your own pack)
-- a **host-built trait list** (EMI codes, anything else)
+- a **style folder** (`polish_direct`, `american_english`, `norwegian_jante`, your own pack)
+- a **host-built trait list** (anything the host already knows)
 
-Kofte does not own EMI. Emitype (or any host) builds a lens from traits:
+The host builds a lens from traits. Kofte only renders it:
 
 ```python
 from kofte import Translator, lens_from_traits
 
-listener = lens_from_traits(
-    "emi:203412107403302401",
-    "Listener",
+reviewer = lens_from_traits(
+    "brief_reviewer",
+    "Brief reviewer",
     [
-        ("Osobowość", "Kontraktowiec"),
-        ("Stan umysłu", "emi3"),
+        ("Tone", "dry"),
+        ("Length", "two sentences"),
     ],
-    summary="Keep it concrete.",
+    summary="Short notes. Name the file.",
 )
 engine.translate(
-    "To jest źle. Popraw to.",
-    source="pl",
-    target="pl",
-    target_lens=listener,
+    "This is wrong. Fix it.",
+    source="en",
+    target="en",
+    target_lens=reviewer,
 )
 ```
 
-Speaker + listener:
+Source voice + target voice:
 
 ```python
 engine.translate(
     text,
-    source="pl",
-    target="pl",
+    source="en",
+    target="en",
     source_lens=speaker,
     target_lens=listener,
 )
 ```
 
 `AdHocLens` is the same thing without the helper. `StyleProfile` is a Lens.
-The engine never imports emitype.
 
 ## Add a style pack (the “filter”)
 
@@ -160,6 +157,7 @@ CLI: `kofte --profile-dir path/to/packs profiles`
 Shipped packs:
 
 - `polish_direct` — supreme: **directness**, **productivity**
+- `american_english` — supreme: **agency**, **positivity**
 - `norwegian_jante` — supreme: **janteloven**, **egalitarianism**
 
 ## Pipeline filters
@@ -284,8 +282,9 @@ The LLM writes the rewrite. Optional `after` filters can reject a bad one.
 
 ## Design
 
-- **Registers** (`en+norwegian_jante`) split language from style.
+- **Registers** (`en+american_english`, `en+norwegian_jante`) split language from style.
 - **Profiles** are TOML + Markdown. Culture is data.
+- **Lenses** are any voice with `prompt_block`. A folder is one source. A host-built trait list is another.
 - **Translator** is the reusable engine: registry + LLM + filters.
 - **LLM** is a protocol. `OpenAICompatClient` talks HTTP to `{base_url}/chat/completions`. Bearer optional. No vendor default. Or inject your own.
 - **MCP and TOOLS** are the same three calls.

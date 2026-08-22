@@ -1,7 +1,7 @@
 """Style profiles are data folders, not Python classes.
 
-A profile is a TOML file plus optional Markdown. The library ships two:
-Polish directness/productivity, and Norwegian Janteloven/egalitarianism.
+A profile is a TOML file plus optional Markdown. The library ships three:
+Polish directness, American English, and Norwegian Janteloven.
 Anything else is a folder you pass to ``load_profile``.
 """
 

@@ -84,7 +84,7 @@ def build_messages(
 
     ``source_profile`` / ``target_profile`` are aliases for lenses
     (style folders). Any object with ``prompt_block`` works, including
-    an EMI trait list built by the host.
+    a trait list built by the host.
     """
     source_lens = source_lens or source_profile
     target_lens = target_lens or target_profile

@@ -15,6 +15,7 @@ def test_cli_lists_bundled_profiles(capsys):
     assert code == 0
     assert "norwegian_jante" in captured
     assert "polish_direct" in captured
+    assert "american_english" in captured
 
 
 def test_cli_prompt_prints_system_and_user(capsys):

@@ -1,8 +1,8 @@
 """A Lens is anything that can describe how to rewrite a message.
 
-Style folders (Janteloven, Polish directness) and host-built views
-(EMI traits, a one-off brief) are two sources of the same thing.
-Kofte does not own EMI. The host builds a lens from traits.
+Style folders and host-built views (a trait list, a one-off brief)
+are two sources of the same thing. The host builds a lens. Kofte
+does not own the host.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ class Lens(Protocol):
 
 
 class AdHocLens(BaseModel):
-    """A lens built in memory. Use this for EMI, or any host that
-    already has traits and does not want a profile folder.
+    """A lens built in memory. Use this when the host already has
+    traits and does not want a profile folder.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -53,8 +53,7 @@ def lens_from_traits(
 ) -> AdHocLens:
     """Build a lens from ``(category, label)`` pairs.
 
-    Emitype would pass ``("Osobowość", "Kontraktowiec")`` etc.
-    Kofte never imports emitype.
+    The host already has a voice. Kofte only renders it.
     """
     lines = tuple(f"{category}: {label}" for category, label in traits if label)
     return AdHocLens(id=lens_id, name=name, summary=summary, lines=lines)

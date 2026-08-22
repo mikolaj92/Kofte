@@ -36,7 +36,9 @@ def test_bundled_registry_has_jante_and_polish():
     registry = ProfileRegistry.bundled()
     assert "norwegian_jante" in registry
     assert "polish_direct" in registry
+    assert "american_english" in registry
     assert registry.get("norwegian_jante").id == "norwegian_jante"
+    assert registry.get("american_english").id == "american_english"
 
 
 def test_register_custom_profile_then_resolve_by_id(tmp_path: Path):

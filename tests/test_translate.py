@@ -76,6 +76,32 @@ def test_english_language_norwegian_style_from_polish():
     assert result.style_changed is True
 
 
+def test_polish_to_american_english_changes_language_and_style():
+    llm = MockLLMClient(
+        responses=[
+            TranslationDraft(
+                text="This isn't landing yet. I'd take another pass on the null check.",
+                language="en",
+                style="american_english",
+                moves=["agency", "positivity"],
+                preserved=["null"],
+            )
+        ]
+    )
+    result = translate(
+        "To jest źle. Popraw to.",
+        source="pl+polish_direct",
+        target="en+american_english",
+        llm=llm,
+    )
+    assert result.target.language == "en"
+    assert result.target.style == "american_english"
+    assert result.language_changed is True
+    assert result.style_changed is True
+    system = llm.calls[0].messages[0]["content"].lower()
+    assert "american" in system or "agency" in system
+
+
 def test_context_turns_are_forwarded_to_the_llm():
     llm = MockLLMClient(
         responses=[

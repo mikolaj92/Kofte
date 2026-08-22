@@ -12,4 +12,5 @@ llm = MockLLMClient(
 )
 engine = Translator(llm=llm)
 engine.registry.register(load_profile(folder))
-print(engine.translate("This is wrong. Fix it.", source="en+polish_direct", target="en+quiet_brit").text)
+out = engine.translate("This is wrong. Fix it.", source="en+polish_direct", target="en+quiet_brit")
+print(out.text)

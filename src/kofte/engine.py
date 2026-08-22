@@ -18,8 +18,7 @@ class Translator:
     """A configured style translator you can reuse across hosts.
 
     Bundled profiles are loaded by default. Register more, inject filters,
-    swap the LLM. Pass a Lens (folder or host-built trait list) when the
-    voice is not a register style id.
+    swap the LLM. Pass a Lens when the voice is not a register style id.
     """
 
     def __init__(

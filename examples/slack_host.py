@@ -18,7 +18,13 @@ llm = MockLLMClient(
 )
 engine = Translator(llm=llm)
 
-event = {"type": "message", "text": "This is wrong. Fix it.", "user": "U1", "channel": "C1", "ts": "2"}
+event = {
+    "type": "message",
+    "text": "This is wrong. Fix it.",
+    "user": "U1",
+    "channel": "C1",
+    "ts": "2",
+}
 thread = [
     {"user": "U9", "text": "Can you look at my PR?", "ts": "1"},
     event,

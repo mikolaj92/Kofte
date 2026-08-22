@@ -14,6 +14,7 @@ def test_norwegian_jante_is_bundled():
     names = list_profiles()
     assert "norwegian_jante" in names
     assert "polish_direct" in names
+    assert "american_english" in names
 
 
 def test_norwegian_jante_treats_janteloven_and_egalitarianism_as_supreme():
@@ -80,3 +81,15 @@ def test_profile_is_frozen():
     profile = bundled_profile("norwegian_jante")
     with pytest.raises((ValidationError, TypeError)):
         profile.id = "mutated"  # type: ignore[misc]
+
+
+def test_american_english_treats_agency_and_positivity_as_supreme():
+    profile = bundled_profile("american_english")
+    assert profile.id == "american_english"
+    assert profile.language_hint == "en"
+    supreme = {axis.id for axis in profile.supreme}
+    assert supreme == {"agency", "positivity"}
+    rules = " ".join(profile.rules).lower()
+    assert "i " in rules or "owner" in rules or "next step" in rules
+    anti = " ".join(profile.anti_patterns).lower()
+    assert "hustle" in anti or "synergy" in anti or "fake" in anti

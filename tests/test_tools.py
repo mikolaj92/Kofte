@@ -41,3 +41,4 @@ def test_dispatch_list_profiles():
     out = dispatch("list_profiles", {})
     ids = {p["id"] for p in out["profiles"]}
     assert "norwegian_jante" in ids
+    assert "american_english" in ids

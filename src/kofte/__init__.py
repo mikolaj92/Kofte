@@ -1,11 +1,11 @@
 """Kofte — open message-translation layer.
 
 A message has two axes: language and style. You can change one, the other, or both.
-A voice is a Lens: a culture folder, or a host-built trait list (EMI, etc.).
+A voice is a Lens: a style folder, or a host-built trait list.
 
-The shipped example is Polish directness and productivity → Norwegian
-Janteloven and egalitarianism. Hosts (Slack, browser, MCP, CLI, emitype)
-sit on top of :class:`Translator`.
+Shipped examples: Polish directness → American English, and Polish
+directness → Norwegian Janteloven (English or Bokmål). Hosts (Slack,
+browser, MCP, CLI) sit on top of :class:`Translator`.
 """
 
 from kofte.engine import Translator, translate
@@ -20,7 +20,7 @@ from kofte.registers import Register, parse_register
 from kofte.registry import ProfileRegistry
 from kofte.tools import TOOLS, dispatch
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "TOOLS",

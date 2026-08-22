@@ -20,6 +20,7 @@ async def test_mcp_lists_bundled_profiles():
     ids = {item["id"] for item in payload["profiles"]}
     assert "norwegian_jante" in ids
     assert "polish_direct" in ids
+    assert "american_english" in ids
 
 
 @pytest.mark.asyncio

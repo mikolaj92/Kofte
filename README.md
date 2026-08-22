@@ -1,6 +1,6 @@
 # Kofte
 
-Open cultural style-translation layer.
+Open message-translation layer. Language and style are independent. A voice is a Lens.
 
 A message has two axes: **language** and **style**. Kofte rewrites one, the other, or both. It is an engine other hosts sit on: Python, CLI, MCP, function-calling tools, Slack events, a browser selection, a clipboard.
 
@@ -64,6 +64,50 @@ engine.translate(
     ],
 )
 ```
+
+## Lenses
+
+A **Lens** is the voice the rewrite should match. Two sources, one engine:
+
+- a **style folder** (`polish_direct`, `norwegian_jante`, your own pack)
+- a **host-built trait list** (EMI codes, anything else)
+
+Kofte does not own EMI. Emitype (or any host) builds a lens from traits:
+
+```python
+from kofte import Translator, lens_from_traits
+
+listener = lens_from_traits(
+    "emi:203412107403302401",
+    "Listener",
+    [
+        ("Osobowość", "Kontraktowiec"),
+        ("Stan umysłu", "emi3"),
+    ],
+    summary="Keep it concrete.",
+)
+engine.translate(
+    "To jest źle. Popraw to.",
+    source="pl",
+    target="pl",
+    target_lens=listener,
+)
+```
+
+Speaker + listener:
+
+```python
+engine.translate(
+    text,
+    source="pl",
+    target="pl",
+    source_lens=speaker,
+    target_lens=listener,
+)
+```
+
+`AdHocLens` is the same thing without the helper. `StyleProfile` is a Lens.
+The engine never imports emitype.
 
 ## Add a style pack (the “filter”)
 

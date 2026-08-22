@@ -44,6 +44,27 @@ class StyleProfile(BaseModel):
             raise ValueError(f"supreme axes not defined: {missing}")
         return self
 
+    def prompt_block(self, label: str) -> str:
+        supreme = ", ".join(f"{axis.name} ({axis.id})" for axis in self.supreme)
+        parts = [
+            f"# {label}: {self.name} (`{self.id}`)",
+            self.summary,
+            f"Supreme axes: {supreme}. These override everything else.",
+        ]
+        if self.axes:
+            body = "\n".join(f"- {a.id}: {a.description or a.name}" for a in self.axes)
+            parts.append(f"## Axes\n{body}")
+        for title, lines in (
+            ("Rules", self.rules),
+            ("Canon", self.canon),
+            ("Examples", self.examples),
+            ("Anti-patterns", self.anti_patterns),
+        ):
+            if lines:
+                body = "\n".join(f"- {line}" for line in lines)
+                parts.append(f"## {title}\n{body}")
+        return "\n\n".join(p for p in parts if p)
+
 
 def _read_text(folder: Any, name: str) -> str:
     path = folder / name

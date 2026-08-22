@@ -207,7 +207,6 @@ def test_cli_lists_kofte_alias(capsys):
 def test_cli_compose_hops(capsys, monkeypatch):
     llm = MockLLMClient(
         responses=[
-            TranslationDraft(text="This is wrong.", language="en", style=None),
             TranslationDraft(text="We look again.", language="en", style="kofte"),
         ]
     )
@@ -217,4 +216,5 @@ def test_cli_compose_hops(capsys, monkeypatch):
     )
     assert code == 0
     assert "We look again." in capsys.readouterr().out
-    assert len(llm.calls) == 2
+    assert len(llm.calls) == 1
+    assert "to jest źle" in llm.calls[0].messages[-1]["content"].lower()

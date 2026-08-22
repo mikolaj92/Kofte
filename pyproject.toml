@@ -1,6 +1,6 @@
 [project]
 name = "kofte"
-version = "0.3.3"
+version = "0.3.4"
 description = "Open message-translation layer: rewrite a message on independent language and style axes."
 readme = "README.md"
 requires-python = ">=3.12"

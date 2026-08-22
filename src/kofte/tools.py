@@ -40,9 +40,9 @@ _TRANSLATE_PARAMS = {
         "hops": {
             "type": "array",
             "description": (
-                "Compose registers in order, e.g. [pl, en, en+kofte]. "
-                "Language first, then the Kofte (Norwegian) voice. "
-                "Replaces source/target when set."
+                "Compose registers in one pass, e.g. [pl, en, en+kofte]. "
+                "First hop is the source, last hop is the target. "
+                "No intermediate rewrite — facts come from the original."
             ),
             "items": {"type": "string"},
         },
@@ -95,7 +95,7 @@ TOOLS: list[dict[str, Any]] = [
             "description": (
                 "Rewrite a message from one language/form to another. "
                 "pl→en changes words. en+kofte is English in the Norwegian voice. "
-                "hops=[pl, en, en+kofte] composes language then form. "
+                "hops=[pl, en, en+kofte] is one pass from the original. "
                 "target_form is a free-text voice when there is no pack."
             ),
             "parameters": _TRANSLATE_PARAMS,

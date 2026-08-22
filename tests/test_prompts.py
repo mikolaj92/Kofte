@@ -76,3 +76,22 @@ def test_conversation_context_is_included():
     joined = "\n".join(m["content"] for m in messages)
     assert "look at my PR" in joined
     assert "garbage" in joined
+
+
+def test_hops_ask_for_one_pass_from_the_original():
+    target = bundled_profile("norwegian_jante")
+    messages = build_messages(
+        text="To jest źle. Popraw to.",
+        source=Register(language="pl"),
+        target=Register(language="en", style="kofte"),
+        target_profile=target,
+        hops=[
+            Register(language="pl"),
+            Register(language="en"),
+            Register(language="en", style="kofte"),
+        ],
+    )
+    joined = "\n".join(m["content"] for m in messages).lower()
+    assert "to jest źle" in joined
+    assert "one pass" in joined or "do not write an intermediate" in joined
+    assert "telephone" in joined or "original" in joined

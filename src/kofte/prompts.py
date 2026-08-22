@@ -25,6 +25,24 @@ def language_name(code: str) -> str:
     return _LANGUAGE_NAMES.get(code, code)
 
 
+def _register_label(register: Register) -> str:
+    lang = language_name(register.language)
+    if register.style:
+        return f"{lang} + {register.style}"
+    return lang
+
+
+def _hops_instruction(hops: Sequence[Register] | None) -> str:
+    if not hops or len(hops) < 3:
+        return ""
+    path = " → ".join(_register_label(item) for item in hops)
+    return (
+        f"Path: {path}. Do this in one pass from the original message. "
+        "Do not write an intermediate version. Do not play telephone. "
+        "Facts come from the original, not from a half-translated draft."
+    )
+
+
 def _language_instruction(source: Register, target: Register) -> str:
     src = language_name(source.language)
     dst = language_name(target.language)
@@ -79,6 +97,7 @@ def build_messages(
     source_lens: Lens | None = None,
     target_lens: Lens | None = None,
     context: Sequence[Turn] | None = None,
+    hops: Sequence[Register] | None = None,
 ) -> list[dict[str, str]]:
     """Build the chat messages for one translation.
 
@@ -97,6 +116,7 @@ def build_messages(
         "Return JSON matching the given schema.",
         _language_instruction(source, target),
         _style_instruction(source, target, source_lens, target_lens),
+        _hops_instruction(hops),
     ]
     if source_lens is not None:
         system_parts.append(source_lens.prompt_block("Source style"))

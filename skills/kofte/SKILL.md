@@ -1,6 +1,6 @@
 ---
 name: kofte
-description: Rewrite a message from one language or form to another via the Kofte engine. Use when translating language (pl→en), restyling into the Norwegian Kofte voice (en+kofte), composing hops (pl,en,en+kofte), or plugging Kofte in as MCP / CLI / function-calling tools.
+description: Rewrite a message from one language or form to another via the Kofte engine. Use when translating language (pl→en), restyling into the Norwegian Kofte voice (en+kofte), one-pass hops (pl,en,en+kofte), or plugging Kofte in as MCP / CLI / function-calling tools.
 license: MIT
 ---
 
@@ -10,7 +10,7 @@ Kofte is a Norwegian word and a translation engine. Language and form are indepe
 
 - `pl` → `en` changes words.
 - `en` → `en+kofte` keeps English, applies the Norwegian voice (Janteloven).
-- hops `pl,en,en+kofte` compose those two steps.
+- hops `pl,en,en+kofte` is one pass from the original. Not two LLM calls.
 - `kofte` is the built-in alias of `norwegian_jante`.
 - `target_form` is a free-text voice when there is no pack.
 

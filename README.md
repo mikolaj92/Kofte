@@ -4,14 +4,13 @@ Open message-translation layer. **Kofte** is a Norwegian word. Language and styl
 
 A message has two axes: **language** and **style**. Change one, then the other. Compose hops. The engine sits under Python, CLI, MCP, a skill, function-calling tools, Slack, a browser, a clipboard.
 
-The built-in Norwegian voice is `kofte` (alias of `norwegian_jante`). Typical compose:
+The built-in Norwegian voice is `kofte` (alias of `norwegian_jante`). Typical compose is **one pass**, not two rewrites (no telephone):
 
 ```python
 translate("To jest źle. Popraw to.", hops=["pl", "en", "en+kofte"], llm=llm)
 ```
 
-1. `pl` → `en` — Polish words become English
-2. `en` → `en+kofte` — English stays English, form becomes Norwegian (Janteloven)
+`hops` names the path. The LLM sees the original Polish once and writes English Kofte. Intermediate hops are not extra calls.
 
 | source | target | what you get |
 | --- | --- | --- |
@@ -310,7 +309,7 @@ The LLM writes the rewrite. Optional `after` filters can reject a bad one.
 ## Design
 
 - **Registers** (`en+kofte`, `en+american_english`) split language from style. `kofte` is the Norwegian voice.
-- **Hops** compose steps: `pl → en → en+kofte` is language, then form.
+- **Hops** name a path (`pl → en → en+kofte`) and run as **one pass** from the original. No telephone.
 - **Profiles** are TOML + Markdown. Culture is data.
 - **Lenses** are any voice with `prompt_block`. A folder is one source. A host-built trait list is another.
 - **Translator** is the reusable engine: registry + LLM + filters.

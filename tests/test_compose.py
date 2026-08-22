@@ -1,4 +1,4 @@
-"""Kofte is Norwegian. Compose hops: language first, then the Kofte voice."""
+"""Kofte is Norwegian. Compose hops in one pass so facts do not play telephone."""
 
 from __future__ import annotations
 
@@ -41,15 +41,14 @@ def test_en_plus_kofte_is_english_words_norwegian_form():
     assert "jante" in system or "egalitar" in system
 
 
-def test_compose_polish_to_english_then_english_kofte():
+def test_hops_are_one_pass_not_telephone():
     llm = MockLLMClient(
         responses=[
-            TranslationDraft(text="This is wrong. Fix it.", language="en", style=None),
             TranslationDraft(
                 text="Something here does not work yet. We could look at it again.",
                 language="en",
                 style="kofte",
-            ),
+            )
         ]
     )
     result = translate(
@@ -57,13 +56,14 @@ def test_compose_polish_to_english_then_english_kofte():
         hops=["pl", "en", "en+kofte"],
         llm=llm,
     )
-    assert len(llm.calls) == 2
-    first = "\n".join(m["content"] for m in llm.calls[0].messages).lower()
-    second = "\n".join(m["content"] for m in llm.calls[1].messages).lower()
-    assert "polish" in first or "this is wrong" not in llm.calls[0].messages[-1]["content"].lower()
-    assert "to jest źle" in llm.calls[0].messages[-1]["content"].lower()
-    assert "this is wrong. fix it." in llm.calls[1].messages[-1]["content"].lower()
-    assert "kofte" in second or "jante" in second
+    assert len(llm.calls) == 1
+    user = llm.calls[0].messages[-1]["content"].lower()
+    system = llm.calls[0].messages[0]["content"].lower()
+    assert "to jest źle" in user
+    assert "this is wrong. fix it." not in user
+    assert "one pass" in system or "do not write an intermediate" in system
+    assert "english" in system
+    assert "jante" in system or "kofte" in system or "egalitar" in system
     assert result.text.startswith("Something here")
     assert result.source.language == "pl"
     assert result.target.language == "en"
@@ -73,28 +73,27 @@ def test_compose_polish_to_english_then_english_kofte():
     assert result.original == "To jest źle. Popraw to."
 
 
-def test_engine_hops_from_source():
+def test_engine_hops_from_source_are_one_call():
     llm = MockLLMClient(
         responses=[
-            TranslationDraft(text="This is wrong.", language="en", style=None),
             TranslationDraft(
                 text="Something here does not work yet.",
                 language="en",
                 style="kofte",
-            ),
+            )
         ]
     )
     engine = Translator(llm=llm)
     result = engine.translate("To jest źle.", source="pl", hops=["en", "en+kofte"])
-    assert len(llm.calls) == 2
+    assert len(llm.calls) == 1
+    assert "to jest źle" in llm.calls[0].messages[-1]["content"].lower()
     assert result.target.style == "kofte"
     assert result.text == "Something here does not work yet."
 
 
-def test_dispatch_hops_polish_then_kofte():
+def test_dispatch_hops_polish_then_kofte_one_call():
     llm = MockLLMClient(
         responses=[
-            TranslationDraft(text="This is wrong.", language="en", style=None),
             TranslationDraft(text="We look again.", language="en", style="kofte"),
         ]
     )
@@ -103,6 +102,7 @@ def test_dispatch_hops_polish_then_kofte():
         {"text": "To jest źle.", "hops": ["pl", "en", "en+kofte"]},
         llm=llm,
     )
+    assert len(llm.calls) == 1
     assert out["text"] == "We look again."
     assert out["source"] == "pl"
     assert out["target"] == "en+kofte"

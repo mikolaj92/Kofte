@@ -42,7 +42,9 @@ class Translator:
 
     Bundled profiles are loaded by default. Register more, inject filters,
     swap the LLM. Pass a Lens when the voice is not a register style id.
-    Compose hops to change language, then form: pl → en → en+kofte.
+
+    hops=["pl", "en", "en+kofte"] is one pass: original Polish in, English
+    Kofte out. Intermediate hops are the path, not extra LLM calls.
     """
 
     def __init__(
@@ -83,28 +85,20 @@ class Translator:
             raise LLMNotConfiguredError("llm is required")
 
         chain = _hop_chain(source, target, hops)
-        original = text
-        current = text
-        last: TranslationResult | None = None
         src_override = source_lens or source_profile
         dst_override = target_lens or target_profile
-        for index, (src_reg, dst_reg) in enumerate(zip(chain, chain[1:], strict=False)):
-            first = index == 0
-            final = index == len(chain) - 2
-            last = self._one(
-                text=current,
-                source=src_reg,
-                target=dst_reg,
-                original=original,
-                context=context if first else None,
-                client=client,
-                source_lens=src_override if first else None,
-                target_lens=dst_override if final else None,
-                filters=filters,
-            )
-            current = last.text
-        assert last is not None
-        return last.model_copy(update={"source": chain[0], "original": original})
+        return self._one(
+            text=text,
+            source=chain[0],
+            target=chain[-1],
+            original=text,
+            context=context,
+            client=client,
+            source_lens=src_override,
+            target_lens=dst_override,
+            filters=filters,
+            hops=chain,
+        )
 
     def _one(
         self,
@@ -117,6 +111,7 @@ class Translator:
         source_lens: Lens | None,
         target_lens: Lens | None,
         filters: Sequence[object] | None,
+        hops: Sequence[Register] | None = None,
     ) -> TranslationResult:
         request = TranslationRequest(
             text=text,
@@ -149,6 +144,7 @@ class Translator:
             source_lens=src,
             target_lens=dst,
             context=request.context,
+            hops=hops,
         )
         draft = client.complete_json(messages, TranslationDraft)
         if not isinstance(draft, TranslationDraft):
@@ -181,7 +177,8 @@ def translate(
 ) -> TranslationResult:
     """One-shot translation. Builds a Translator with bundled profiles.
 
-    Pass ``hops=["pl", "en", "en+kofte"]`` to change language, then form.
+    ``hops=["pl", "en", "en+kofte"]`` is one pass from the original.
+    Intermediate hops name the path. They are not extra LLM calls.
     """
     engine = Translator(llm=llm, registry=registry, filters=filters or ())
     return engine.translate(

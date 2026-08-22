@@ -122,7 +122,6 @@ async def test_mcp_translate_adhoc_form():
 async def test_mcp_compose_hops():
     llm = MockLLMClient(
         responses=[
-            TranslationDraft(text="This is wrong.", language="en", style=None),
             TranslationDraft(text="We look again.", language="en", style="kofte"),
         ]
     )
@@ -134,4 +133,5 @@ async def test_mcp_compose_hops():
     payload = _payload(result)
     assert payload["text"] == "We look again."
     assert payload["target"] == "en+kofte"
-    assert len(llm.calls) == 2
+    assert len(llm.calls) == 1
+    assert "to jest źle" in llm.calls[0].messages[-1]["content"].lower()

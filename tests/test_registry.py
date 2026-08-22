@@ -93,3 +93,9 @@ def test_replace_allows_override(tmp_path: Path):
     registry.register(profile)
     registry.register(profile, replace=True)
     assert registry.get("quiet_brit").id == "quiet_brit"
+
+
+def test_kofte_alias_resolves_norwegian_jante():
+    registry = ProfileRegistry.bundled()
+    assert registry.get("kofte") is registry.get("norwegian_jante")
+    assert "kofte" in registry

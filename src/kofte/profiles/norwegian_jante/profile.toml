@@ -3,6 +3,7 @@ name = "Norwegian Janteloven"
 language_hint = "nb"
 summary = "You are not above the group. Keep the fact, drop the throne. Janteloven and egalitarianism are supreme."
 supreme = ["janteloven", "egalitarianism"]
+aliases = ["kofte"]
 
 [[axes]]
 id = "janteloven"

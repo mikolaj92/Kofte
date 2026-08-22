@@ -35,6 +35,7 @@ class StyleProfile(BaseModel):
     canon: tuple[str, ...] = ()
     examples: tuple[str, ...] = ()
     anti_patterns: tuple[str, ...] = ()
+    aliases: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def _supreme_must_exist(self) -> StyleProfile:
@@ -119,4 +120,5 @@ def load_profile_from_path(folder: Path | Any) -> StyleProfile:
         canon=canon,
         examples=examples,
         anti_patterns=anti,
+        aliases=tuple(str(item).strip() for item in data.get("aliases", []) if str(item).strip()),
     )

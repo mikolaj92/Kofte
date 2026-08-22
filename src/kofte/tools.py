@@ -27,7 +27,7 @@ _TRANSLATE_PARAMS = {
         },
         "target": {
             "type": "string",
-            "description": "Target register, e.g. en, pl, en+american_english, en+norwegian_jante.",
+            "description": "Target register, e.g. en, pl, en+american_english, en+kofte.",
         },
         "source_form": {
             "type": "string",
@@ -36,6 +36,15 @@ _TRANSLATE_PARAMS = {
         "target_form": {
             "type": "string",
             "description": "Optional free-text target voice. Use when there is no profile folder.",
+        },
+        "hops": {
+            "type": "array",
+            "description": (
+                "Compose registers in order, e.g. [pl, en, en+kofte]. "
+                "Language first, then the Kofte (Norwegian) voice. "
+                "Replaces source/target when set."
+            ),
+            "items": {"type": "string"},
         },
         "context": {
             "type": "array",
@@ -50,7 +59,7 @@ _TRANSLATE_PARAMS = {
             },
         },
     },
-    "required": ["text", "source", "target"],
+    "required": ["text"],
 }
 
 TOOLS: list[dict[str, Any]] = [
@@ -85,9 +94,9 @@ TOOLS: list[dict[str, Any]] = [
             "name": "translate",
             "description": (
                 "Rewrite a message from one language/form to another. "
-                "Language and style are independent: pl→en changes words; "
-                "en+polish_direct→en+norwegian_jante changes register; "
-                "target_form rewrites into a free-text voice with no pack."
+                "pl→en changes words. en+kofte is English in the Norwegian voice. "
+                "hops=[pl, en, en+kofte] composes language then form. "
+                "target_form is a free-text voice when there is no pack."
             ),
             "parameters": _TRANSLATE_PARAMS,
         },
@@ -119,6 +128,7 @@ def profile_summary(profile: StyleProfile) -> dict[str, Any]:
         "language_hint": profile.language_hint,
         "summary": profile.summary,
         "supreme": [axis.id for axis in profile.supreme],
+        "aliases": list(profile.aliases),
     }
 
 
@@ -143,6 +153,15 @@ def result_payload(result: TranslationResult) -> dict[str, Any]:
         "moves": list(result.moves),
         "preserved": list(result.preserved),
     }
+
+
+def _hops(raw: object) -> list[str] | None:
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, str):
+        parts = [part.strip() for part in raw.split(",") if part.strip()]
+        return parts or None
+    return [str(item).strip() for item in raw if str(item).strip()] or None
 
 
 def _turns(raw: Sequence[Mapping[str, Any]] | None) -> list[Turn]:
@@ -174,13 +193,17 @@ def dispatch(
         profile = engine.registry.get(str(arguments["profile_id"]))
         return profile_detail(profile)
     if name == "translate":
+        hops = _hops(arguments.get("hops"))
+        source = arguments.get("source")
+        target = arguments.get("target")
         result = engine.translate(
             str(arguments["text"]),
-            source=str(arguments["source"]),
-            target=str(arguments["target"]),
+            source=str(source) if source else None,
+            target=str(target) if target else None,
             context=_turns(arguments.get("context")),
             source_lens=_form_lens("source", arguments.get("source_form")),
             target_lens=_form_lens("target", arguments.get("target_form")),
+            hops=hops,
         )
         return result_payload(result)
     raise KeyError(f"unknown tool {name!r}")

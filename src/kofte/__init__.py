@@ -3,9 +3,9 @@
 A message has two axes: language and style. You can change one, the other, or both.
 A voice is a Lens: a style folder, or a host-built trait list.
 
-Shipped examples: Polish directness → American English, and Polish
-directness → Norwegian Janteloven (English or Bokmål). Hosts (Slack,
-browser, MCP, CLI) sit on top of :class:`Translator`.
+Kofte is a Norwegian word. The shipped Norwegian voice is addressable
+as ``kofte`` (alias of ``norwegian_jante``). Compose hops to change
+language, then form: ``pl → en → en+kofte``.
 """
 
 from kofte.engine import Translator, translate
@@ -20,7 +20,7 @@ from kofte.registers import Register, parse_register
 from kofte.registry import ProfileRegistry
 from kofte.tools import TOOLS, dispatch
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"
 
 __all__ = [
     "TOOLS",

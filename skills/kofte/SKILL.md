@@ -1,22 +1,22 @@
 ---
 name: kofte
-description: Rewrite a message from one language or form to another via the Kofte engine. Use when translating language (pl→en), restyling a register (polish_direct→norwegian_jante / american_english), or plugging Kofte in as MCP / CLI / function-calling tools.
+description: Rewrite a message from one language or form to another via the Kofte engine. Use when translating language (pl→en), restyling into the Norwegian Kofte voice (en+kofte), composing hops (pl,en,en+kofte), or plugging Kofte in as MCP / CLI / function-calling tools.
 license: MIT
 ---
 
 # Kofte
 
-Kofte is a translation engine. Language and form are independent.
+Kofte is a Norwegian word and a translation engine. Language and form are independent.
 
 - `pl` → `en` changes words.
-- `en+polish_direct` → `en+norwegian_jante` changes form, English stays English.
+- `en` → `en+kofte` keeps English, applies the Norwegian voice (Janteloven).
+- hops `pl,en,en+kofte` compose those two steps.
+- `kofte` is the built-in alias of `norwegian_jante`.
 - `target_form` is a free-text voice when there is no pack.
 
 Do not invent a rewrite in the agent. Call the engine.
 
 ## Plug in (MCP)
-
-Any MCP host:
 
 ```yaml
 mcp_servers:
@@ -27,12 +27,9 @@ mcp_servers:
 
 Or: `uv run kofte-mcp` after `uv add 'kofte[mcp]'`.
 
-Needs a `/v1/chat/completions` server:
-
 ```bash
 export KOFTE_LLM_BASE_URL=http://127.0.0.1:1234/v1
 export KOFTE_LLM_MODEL=local-model
-# optional: KOFTE_LLM_API_KEY
 ```
 
 Tools: `list_profiles`, `describe_profile`, `translate`.
@@ -41,8 +38,9 @@ Tools: `list_profiles`, `describe_profile`, `translate`.
 
 ```bash
 kofte translate --source pl --target en "To jest źle. Popraw to."
+kofte translate --source en --target en+kofte "This is wrong. Fix it."
+kofte translate --hops pl,en,en+kofte "To jest źle. Popraw to."
 kofte translate --source pl+polish_direct --target en+american_english "To jest źle."
-kofte translate --source pl+polish_direct --target en+norwegian_jante "To jest źle."
 kofte translate --source en --target en --target-form "Brief reviewer. Name the file." "This is wrong. Fix it."
 ```
 
@@ -50,16 +48,14 @@ kofte translate --source en --target en --target-form "Brief reviewer. Name the 
 
 ```python
 from kofte import TOOLS, dispatch
-out = dispatch("translate", {"text": text, "source": "pl", "target": "en"}, llm=llm)
+out = dispatch("translate", {"text": text, "hops": ["pl", "en", "en+kofte"]}, llm=llm)
 ```
-
-`target_form` / `source_form` are free-text voices. No pack required.
 
 ## Registers
 
 `{language}` or `{language}+{style}`.
 
-Shipped styles: `polish_direct`, `american_english`, `norwegian_jante`.
-Unknown style is an error. Unknown language-only (`pl`, `en`) is fine.
+Shipped styles: `kofte` (Norwegian; alias of `norwegian_jante`), `polish_direct`, `american_english`.
+Unknown style is an error. Language-only (`pl`, `en`) is fine.
 
 Call `list_profiles` before guessing a style id.

@@ -33,13 +33,14 @@ def create_server(
 
     server = MCPServer(
         name="kofte",
-        version="0.3.2",
+        version="0.3.3",
         instructions=(
             "Message translator. Language and style are independent. "
             "Use list_profiles, describe_profile, then translate. "
-            "pl→en changes language. en+polish_direct→en+norwegian_jante changes form. "
-            "target_form is a free-text voice when there is no pack. "
-            "en+norwegian_jante means English words in a Norwegian Jante register."
+            "pl→en changes language. en+kofte is English in the Norwegian voice. "
+            "hops=[pl, en, en+kofte] composes language then form. "
+            "kofte is an alias of norwegian_jante. "
+            "target_form is a free-text voice when there is no pack."
         ),
     )
 
@@ -59,18 +60,28 @@ def create_server(
     @server.tool()
     def translate(
         text: str,
-        source: str,
-        target: str,
+        source: str | None = None,
+        target: str | None = None,
         source_form: str | None = None,
         target_form: str | None = None,
+        hops: list[str] | None = None,
         context: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
-        """Rewrite a message from one language/form to another."""
-        payload: dict[str, Any] = {"text": text, "source": source, "target": target}
+        """Rewrite a message from one language/form to another.
+
+        hops=[pl, en, en+kofte] changes language, then applies the Kofte voice.
+        """
+        payload: dict[str, Any] = {"text": text}
+        if source:
+            payload["source"] = source
+        if target:
+            payload["target"] = target
         if source_form:
             payload["source_form"] = source_form
         if target_form:
             payload["target_form"] = target_form
+        if hops:
+            payload["hops"] = hops
         if context:
             payload["context"] = context
         return _call("translate", payload)

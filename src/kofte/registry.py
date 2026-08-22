@@ -2,6 +2,7 @@
 
 Bundled profiles load by default. Hosts add more with ``register``,
 ``register_path``, or ``load_dir``. ``en+quiet_brit`` then resolves.
+``kofte`` is an alias of the Norwegian pack.
 """
 
 from __future__ import annotations
@@ -15,10 +16,11 @@ from kofte.profiles.schema import StyleProfile
 
 
 class ProfileRegistry:
-    """``style id -> StyleProfile`` with duplicate protection."""
+    """``style id -> StyleProfile`` with duplicate protection and aliases."""
 
     def __init__(self, profiles: Iterable[StyleProfile] = ()) -> None:
         self._entries: dict[str, StyleProfile] = {}
+        self._aliases: dict[str, str] = {}
         for profile in profiles:
             self.register(profile)
 
@@ -32,7 +34,26 @@ class ProfileRegistry:
     def register(self, profile: StyleProfile, *, replace: bool = False) -> StyleProfile:
         if profile.id in self._entries and not replace:
             raise KeyError(f"profile {profile.id!r} is already registered")
+        if profile.id in self._aliases and not replace:
+            raise KeyError(f"profile {profile.id!r} is already registered as an alias")
+        for alias in profile.aliases:
+            if alias == profile.id:
+                continue
+            taken = None
+            if alias in self._entries:
+                taken = self._entries[alias]
+            elif alias in self._aliases:
+                taken = self._entries[self._aliases[alias]]
+            if taken is not None and taken.id != profile.id and not replace:
+                raise KeyError(f"alias {alias!r} is already registered")
+        if replace and profile.id in self._entries:
+            old = self._entries[profile.id]
+            for alias in old.aliases:
+                self._aliases.pop(alias, None)
         self._entries[profile.id] = profile
+        for alias in profile.aliases:
+            if alias != profile.id:
+                self._aliases[alias] = profile.id
         return profile
 
     def register_path(self, folder: str | Path, *, replace: bool = False) -> StyleProfile:
@@ -47,13 +68,14 @@ class ProfileRegistry:
         return loaded
 
     def get(self, profile_id: str) -> StyleProfile:
+        key = self._aliases.get(profile_id, profile_id)
         try:
-            return self._entries[profile_id]
+            return self._entries[key]
         except KeyError as exc:
             raise UnknownProfileError(profile_id) from exc
 
     def __contains__(self, profile_id: object) -> bool:
-        return profile_id in self._entries
+        return profile_id in self._entries or profile_id in self._aliases
 
     def __len__(self) -> int:
         return len(self._entries)

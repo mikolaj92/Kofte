@@ -15,6 +15,7 @@ def test_norwegian_jante_is_bundled():
     assert "norwegian_jante" in names
     assert "polish_direct" in names
     assert "american_english" in names
+    assert "kofte" not in names  # alias, not a second folder
 
 
 def test_norwegian_jante_treats_janteloven_and_egalitarianism_as_supreme():
@@ -93,3 +94,8 @@ def test_american_english_treats_agency_and_positivity_as_supreme():
     assert "i " in rules or "owner" in rules or "next step" in rules
     anti = " ".join(profile.anti_patterns).lower()
     assert "hustle" in anti or "synergy" in anti or "fake" in anti
+
+
+def test_kofte_alias_on_norwegian_pack():
+    profile = bundled_profile("norwegian_jante")
+    assert "kofte" in profile.aliases

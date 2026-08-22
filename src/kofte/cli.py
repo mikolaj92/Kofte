@@ -16,6 +16,13 @@ from kofte.registry import ProfileRegistry
 from kofte.tools import result_payload
 
 
+def _parse_hops(raw: str | None) -> list[str] | None:
+    if not raw:
+        return None
+    parts = [part.strip() for part in raw.split(",") if part.strip()]
+    return parts or None
+
+
 def _form_lens(role: str, brief: str | None):
     if not brief or not str(brief).strip():
         return None
@@ -40,7 +47,9 @@ def _cmd_profiles(args: argparse.Namespace) -> int:
     engine = _engine(args)
     for profile in engine.registry:
         supreme = ", ".join(axis.id for axis in profile.supreme)
-        sys.stdout.write(f"{profile.id}\t{profile.name}\t{supreme}\n")
+        aliases = ",".join(profile.aliases)
+        extra = f"\t{aliases}" if aliases else ""
+        sys.stdout.write(f"{profile.id}\t{profile.name}\t{supreme}{extra}\n")
     return 0
 
 
@@ -65,12 +74,14 @@ def _cmd_prompt(args: argparse.Namespace) -> int:
 def _cmd_translate(args: argparse.Namespace) -> int:
     engine = _engine(args)
     try:
+        hops = _parse_hops(getattr(args, "hops", None))
         result = engine.translate(
             args.text,
             source=args.source,
             target=args.target,
             source_lens=_form_lens("source", getattr(args, "source_form", None)),
             target_lens=_form_lens("target", getattr(args, "target_form", None)),
+            hops=hops,
         )
     except LLMNotConfiguredError as exc:
         sys.stderr.write(f"{exc}\n")
@@ -79,7 +90,7 @@ def _cmd_translate(args: argparse.Namespace) -> int:
             "(LM Studio, Ollama, vLLM, llama.cpp). Bearer token is optional.\n"
         )
         return 2
-    except KofteError as exc:
+    except (KofteError, ValueError) as exc:
         sys.stderr.write(f"{exc}\n")
         return 2
     if args.json:
@@ -147,8 +158,12 @@ def main(argv: list[str] | None = None) -> int:
         help="translate a message via any /v1 chat-completions server",
     )
     p_translate.add_argument("text")
-    p_translate.add_argument("--source", required=True)
-    p_translate.add_argument("--target", required=True)
+    p_translate.add_argument("--source", default=None)
+    p_translate.add_argument("--target", default=None)
+    p_translate.add_argument(
+        "--hops",
+        help="Compose registers, comma-separated: pl,en,en+kofte",
+    )
     p_translate.add_argument("--json", action="store_true", help="print a JSON result")
     p_translate.add_argument(
         "--source-form",

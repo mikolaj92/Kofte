@@ -116,3 +116,22 @@ async def test_mcp_translate_adhoc_form():
     assert payload["text"] == "ok"
     system = llm.calls[0].messages[0]["content"]
     assert "Brief reviewer" in system
+
+
+@pytest.mark.asyncio
+async def test_mcp_compose_hops():
+    llm = MockLLMClient(
+        responses=[
+            TranslationDraft(text="This is wrong.", language="en", style=None),
+            TranslationDraft(text="We look again.", language="en", style="kofte"),
+        ]
+    )
+    server = create_server(llm=llm)
+    result = await server.call_tool(
+        "translate",
+        {"text": "To jest źle.", "hops": ["pl", "en", "en+kofte"]},
+    )
+    payload = _payload(result)
+    assert payload["text"] == "We look again."
+    assert payload["target"] == "en+kofte"
+    assert len(llm.calls) == 2

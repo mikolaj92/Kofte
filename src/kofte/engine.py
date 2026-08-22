@@ -14,11 +14,35 @@ from kofte.registers import Register, parse_register
 from kofte.registry import ProfileRegistry
 
 
+def _hop_chain(
+    source: str | Register | None,
+    target: str | Register | None,
+    hops: Sequence[str | Register] | None,
+) -> list[Register]:
+    if hops:
+        chain = [parse_register(item) for item in hops]
+        if source is not None:
+            start = parse_register(source)
+            if not chain or chain[0] != start:
+                chain = [start, *chain]
+        if target is not None:
+            end = parse_register(target)
+            if chain[-1] != end:
+                chain.append(end)
+        if len(chain) < 2:
+            raise ValueError("hops needs at least two registers, e.g. pl,en,en+kofte")
+        return chain
+    if source is None or target is None:
+        raise ValueError("source and target are required unless hops is set")
+    return [parse_register(source), parse_register(target)]
+
+
 class Translator:
     """A configured style translator you can reuse across hosts.
 
     Bundled profiles are loaded by default. Register more, inject filters,
     swap the LLM. Pass a Lens when the voice is not a register style id.
+    Compose hops to change language, then form: pl → en → en+kofte.
     """
 
     def __init__(
@@ -43,8 +67,8 @@ class Translator:
     def translate(
         self,
         text: str,
-        source: str | Register,
-        target: str | Register,
+        source: str | Register | None = None,
+        target: str | Register | None = None,
         context: Sequence[Turn] | None = None,
         llm: LLMClient | None = None,
         source_profile: Lens | None = None,
@@ -52,34 +76,69 @@ class Translator:
         source_lens: Lens | None = None,
         target_lens: Lens | None = None,
         filters: Sequence[object] | None = None,
+        hops: Sequence[str | Register] | None = None,
     ) -> TranslationResult:
         client = llm if llm is not None else self.llm
         if client is None:
             raise LLMNotConfiguredError("llm is required")
 
+        chain = _hop_chain(source, target, hops)
+        original = text
+        current = text
+        last: TranslationResult | None = None
+        src_override = source_lens or source_profile
+        dst_override = target_lens or target_profile
+        for index, (src_reg, dst_reg) in enumerate(zip(chain, chain[1:], strict=False)):
+            first = index == 0
+            final = index == len(chain) - 2
+            last = self._one(
+                text=current,
+                source=src_reg,
+                target=dst_reg,
+                original=original,
+                context=context if first else None,
+                client=client,
+                source_lens=src_override if first else None,
+                target_lens=dst_override if final else None,
+                filters=filters,
+            )
+            current = last.text
+        assert last is not None
+        return last.model_copy(update={"source": chain[0], "original": original})
+
+    def _one(
+        self,
+        text: str,
+        source: Register,
+        target: Register,
+        original: str,
+        context: Sequence[Turn] | None,
+        client: LLMClient,
+        source_lens: Lens | None,
+        target_lens: Lens | None,
+        filters: Sequence[object] | None,
+    ) -> TranslationResult:
         request = TranslationRequest(
             text=text,
-            source=parse_register(source),
-            target=parse_register(target),
+            source=source,
+            target=target,
             context=tuple(context or ()),
         )
         chain = list(self.filters if filters is None else filters)
         request = apply_before(chain, request)
 
-        src_override = source_lens or source_profile
-        dst_override = target_lens or target_profile
         try:
-            src = self.resolve(request.source, src_override)
+            src = self.resolve(request.source, source_lens)
         except UnknownProfileError:
-            if src_override is not None:
-                src = src_override
+            if source_lens is not None:
+                src = source_lens
             else:
                 raise
         try:
-            dst = self.resolve(request.target, dst_override)
+            dst = self.resolve(request.target, target_lens)
         except UnknownProfileError:
-            if dst_override is not None:
-                dst = dst_override
+            if target_lens is not None:
+                dst = target_lens
             else:
                 raise
 
@@ -99,7 +158,7 @@ class Translator:
             text=draft.text,
             source=request.source,
             target=request.target,
-            original=text,
+            original=original,
             moves=tuple(draft.moves),
             preserved=tuple(draft.preserved),
         )
@@ -108,8 +167,8 @@ class Translator:
 
 def translate(
     text: str,
-    source: str | Register,
-    target: str | Register,
+    source: str | Register | None = None,
+    target: str | Register | None = None,
     context: Sequence[Turn] | None = None,
     llm: LLMClient | None = None,
     source_profile: Lens | None = None,
@@ -118,8 +177,12 @@ def translate(
     target_lens: Lens | None = None,
     filters: Sequence[object] | None = None,
     registry: ProfileRegistry | None = None,
+    hops: Sequence[str | Register] | None = None,
 ) -> TranslationResult:
-    """One-shot translation. Builds a Translator with bundled profiles."""
+    """One-shot translation. Builds a Translator with bundled profiles.
+
+    Pass ``hops=["pl", "en", "en+kofte"]`` to change language, then form.
+    """
     engine = Translator(llm=llm, registry=registry, filters=filters or ())
     return engine.translate(
         text,
@@ -130,4 +193,5 @@ def translate(
         target_profile=target_profile,
         source_lens=source_lens,
         target_lens=target_lens,
+        hops=hops,
     )

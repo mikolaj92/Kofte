@@ -17,3 +17,4 @@ def test_skill_file_exists_with_frontmatter():
     assert "kofte mcp" in body.lower() or "kofte-mcp" in body.lower()
     assert "translate" in body.lower()
     assert "pl" in body and "en" in body
+    assert "en+kofte" in body or "hops" in body.lower()

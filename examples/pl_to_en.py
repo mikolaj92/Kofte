@@ -1,32 +1,25 @@
-"""Two public routes: Polish → American English, Polish → English Jante."""
+"""Compose: Polish → English, then English → English Kofte (Norwegian voice)."""
 
 from kofte import MockLLMClient, TranslationDraft, translate
 
-american = MockLLMClient(
+llm = MockLLMClient(
     responses=[
-        TranslationDraft(
-            text="This isn't landing yet. I'd take another pass on the null check.",
-            language="en",
-            style="american_english",
-            moves=["agency"],
-            preserved=["null"],
-        )
-    ]
-)
-jante = MockLLMClient(
-    responses=[
+        TranslationDraft(text="This is wrong. Fix it.", language="en", style=None),
         TranslationDraft(
             text="Something here does not work yet. We could look at it again together.",
             language="en",
-            style="norwegian_jante",
+            style="kofte",
             moves=["we", "yet"],
             preserved=["does not work"],
-        )
+        ),
     ]
 )
 
-src = "To jest źle. Popraw to."
-a = translate(src, source="pl+polish_direct", target="en+american_english", llm=american)
-j = translate(src, source="pl+polish_direct", target="en+norwegian_jante", llm=jante)
-print("american:", a.text)
-print("jante:   ", j.text)
+result = translate(
+    "To jest źle. Popraw to.",
+    hops=["pl", "en", "en+kofte"],
+    llm=llm,
+)
+print(result.text)
+print("source", result.source)
+print("target", result.target)

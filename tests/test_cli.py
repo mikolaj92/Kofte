@@ -195,3 +195,26 @@ def test_cli_translate_target_form(capsys, monkeypatch):
     assert code == 0
     assert "ok" in capsys.readouterr().out
     assert "Brief reviewer" in llm.calls[0].messages[0]["content"]
+
+
+def test_cli_lists_kofte_alias(capsys):
+    code = main(["profiles"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "kofte" in out
+
+
+def test_cli_compose_hops(capsys, monkeypatch):
+    llm = MockLLMClient(
+        responses=[
+            TranslationDraft(text="This is wrong.", language="en", style=None),
+            TranslationDraft(text="We look again.", language="en", style="kofte"),
+        ]
+    )
+    monkeypatch.setattr("kofte.cli.build_llm", lambda **kwargs: llm)
+    code = main(
+        ["translate", "--hops", "pl,en,en+kofte", "To jest źle."]
+    )
+    assert code == 0
+    assert "We look again." in capsys.readouterr().out
+    assert len(llm.calls) == 2

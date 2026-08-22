@@ -1,17 +1,25 @@
 # Kofte
 
-Open message-translation layer. Language and style are independent. A voice is a Lens.
+Open message-translation layer. **Kofte** is a Norwegian word. Language and style are independent. A voice is a Lens.
 
-A message has two axes: **language** and **style**. Kofte rewrites one, the other, or both. It is an engine other hosts sit on: Python, CLI, MCP, function-calling tools, Slack events, a browser selection, a clipboard.
+A message has two axes: **language** and **style**. Change one, then the other. Compose hops. The engine sits under Python, CLI, MCP, a skill, function-calling tools, Slack, a browser, a clipboard.
 
-Two shipped routes, same Polish source:
+The built-in Norwegian voice is `kofte` (alias of `norwegian_jante`). Typical compose:
+
+```python
+translate("To jest źle. Popraw to.", hops=["pl", "en", "en+kofte"], llm=llm)
+```
+
+1. `pl` → `en` — Polish words become English
+2. `en` → `en+kofte` — English stays English, form becomes Norwegian (Janteloven)
 
 | source | target | what you get |
 | --- | --- | --- |
+| `pl` | `en` | language only |
+| `en` | `en+kofte` | English words, Norwegian Kofte voice |
 | `pl+polish_direct` | `en+american_english` | English words, American agency |
-| `pl+polish_direct` | `en+norwegian_jante` | English words, Janteloven register |
-| `pl+polish_direct` | `nb+norwegian_jante` | Bokmål words, Janteloven register |
-| `en+polish_direct` | `en+norwegian_jante` | style only, English stays English |
+| `pl+polish_direct` | `en+kofte` | English words, Norwegian Kofte voice |
+| `pl+polish_direct` | `nb+kofte` | Bokmål words, Norwegian Kofte voice |
 | `en+polish_direct` | `nb+polish_direct` | language only, blunt register stays |
 
 ## Install
@@ -34,8 +42,8 @@ llm = OpenAICompatClient(
 engine = Translator(llm=llm)
 result = engine.translate(
     "This is wrong. Fix it.",
-    source="en+polish_direct",
-    target="en+norwegian_jante",
+    source="en",
+    target="en+kofte",
 )
 print(result.text)
 print(result.language_changed, result.style_changed)
@@ -54,8 +62,8 @@ from kofte import Turn
 
 engine.translate(
     "This PR is a mess. Do it again.",
-    source="en+polish_direct",
-    target="en+norwegian_jante",
+    source="en",
+    target="en+kofte",
     context=[
         Turn(role="user", text="Could you review my pull request?"),
         Turn(role="assistant", text="Sure."),
@@ -67,7 +75,7 @@ engine.translate(
 
 A **Lens** is the voice the rewrite should match. Two sources, one engine:
 
-- a **style folder** (`polish_direct`, `american_english`, `norwegian_jante`, your own pack)
+- a **style folder** (`kofte` / `norwegian_jante`, `polish_direct`, `american_english`, your own pack)
 - a **host-built trait list** (anything the host already knows)
 
 The host builds a lens from traits. Kofte only renders it:
@@ -158,7 +166,7 @@ Shipped packs:
 
 - `polish_direct` — supreme: **directness**, **productivity**
 - `american_english` — supreme: **agency**, **positivity**
-- `norwegian_jante` — supreme: **janteloven**, **egalitarianism**
+- `kofte` — alias of `norwegian_jante`. Supreme: **janteloven**, **egalitarianism**
 
 ## Pipeline filters
 
@@ -213,7 +221,7 @@ Skill (copy `skills/kofte/` into the agent skills dir, or point the host at this
 skills/kofte/SKILL.md
 ```
 
-`translate` takes a language (`pl` → `en`), a packed form (`en+american_english`), or a free-text form (`target_form`).
+`translate` takes a language (`pl` → `en`), the Norwegian voice (`en+kofte`), hops (`pl,en,en+kofte`), or a free-text form (`target_form`).
 
 ```python
 from kofte import OpenAICompatClient
@@ -231,8 +239,7 @@ from kofte import TOOLS, dispatch
 # give TOOLS to your model as tools=
 out = dispatch("translate", {
     "text": "To jest źle. Popraw to.",
-    "source": "pl",
-    "target": "en",
+    "hops": ["pl", "en", "en+kofte"],
 }, llm=llm)
 
 out = dispatch("translate", {
@@ -267,9 +274,10 @@ Wire a Slack bot, a browser extension, or a clipboard watcher on top. The engine
 
 ```bash
 kofte profiles
-kofte prompt --source en+polish_direct --target en+norwegian_jante "This is wrong. Fix it."
+kofte prompt --source en --target en+kofte "This is wrong. Fix it."
 kofte translate --source pl --target en "To jest źle. Popraw to."
-kofte translate --json --source en+polish_direct --target en+norwegian_jante "This is wrong."
+kofte translate --source en --target en+kofte "This is wrong. Fix it."
+kofte translate --hops pl,en,en+kofte "To jest źle. Popraw to."
 kofte translate --source en --target en --target-form "Brief reviewer. Name the file." "This is wrong."
 kofte mcp
 ```
@@ -278,7 +286,7 @@ kofte mcp
 
 ```bash
 kofte translate --base-url http://127.0.0.1:1234/v1 --model qwen \
-  --source en+polish_direct --target en+norwegian_jante "This is wrong. Fix it."
+  --hops pl,en,en+kofte "To jest źle. Popraw to."
 ```
 
 Env instead of flags: `KOFTE_LLM_BASE_URL`, `KOFTE_LLM_MODEL`, optional `KOFTE_LLM_API_KEY`.
@@ -301,7 +309,8 @@ The LLM writes the rewrite. Optional `after` filters can reject a bad one.
 
 ## Design
 
-- **Registers** (`en+american_english`, `en+norwegian_jante`) split language from style.
+- **Registers** (`en+kofte`, `en+american_english`) split language from style. `kofte` is the Norwegian voice.
+- **Hops** compose steps: `pl → en → en+kofte` is language, then form.
 - **Profiles** are TOML + Markdown. Culture is data.
 - **Lenses** are any voice with `prompt_block`. A folder is one source. A host-built trait list is another.
 - **Translator** is the reusable engine: registry + LLM + filters.
